@@ -1,0 +1,13 @@
+def myname(param1)
+{
+    for(param1<30;param1++)
+    {
+        printd(param1);
+    }
+}
+
+x=6;
+
+myname(x);
+
+
