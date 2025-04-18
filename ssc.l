@@ -21,6 +21,16 @@
 
 %%
 
+"INTEGER"				{debugFlex(tok_INTEGER); return tok_integer;}
+"REAL"					{debugFlex(tok_REAL); return tok_real;}
+"CHAR"					{debugFlex(tok_CHAR); return tok_char;}
+"STRING"				{debugFlex(tok_STRING); return tok_string;}
+"BOOLEAN"				{debugFlex(tok_BOOLEAN); return tok_boolean;}
+"DATE"					{debugFlex(tok_DATE); return tok_date;}
+
+"TRUE"					{debugFlex(tok_TRUE); yylval.boolean_literal = true; return tok_TRUE;}
+"FALSE"					{debugFlex(tok_FALSE); yylval.boolean_literal = false; return tok_FALSE;}
+
 "printd"				{debugFlex(tok_printd); return tok_printd;}
 "prints"				{debugFlex(tok_prints); return tok_prints;}
 "if"                  	{debugFlex(tok_if); return tok_if;}
@@ -34,6 +44,11 @@
 	yylval.string_literal = strdup(yytext + 1);
 	yylval.string_literal[strlen(yylval.string_literal) - 1] = '\0'; 
     return tok_string_literal;
+}
+\'([^\\']|\\.)\' { 
+    debugFlex(tok_char_literal);
+    yylval.char_literal = yytext[1];  // Only the character inside the quotes
+    return tok_char_literal;
 }
 
 \/\/.*					{;}

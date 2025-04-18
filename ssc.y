@@ -24,6 +24,9 @@
     char *identifier;
     double double_literal;
     char *string_literal;
+    char char_literal;
+	bool boolean_literal;
+	char* date_literal;
     ASTNode* ast_node;
     std::vector<ASTNode*>* stmt_list;
     std::vector<std::string>* param_list;  // Change to std::vector<std::string>
@@ -37,11 +40,22 @@
 %token tok_for
 %token tok_return
 %token tok_def
+
+%token tok_int      
+%token tok_real       
+%token tok_boolean     
+%token tok_char  
+%token tok_string
+%token tok_date       
+
 %token <identifier> tok_identifier
 %token <double_literal> tok_double_literal
 %token <string_literal> tok_string_literal
+%token <char_literal> tok_char_literal          
+%token <boolean_literal> tok_bool_literal      
 
-%type <ast_node> term expression comparison statement assignment printd prints if_stmt for_stmt for_assign func_stmt func_call_stmt
+
+%type <ast_node> term expression comparison statement assignment printd prints if_stmt for_stmt for_assign func_stmt func_call_stmt declaration
 %type <stmt_list> statements argument_list
 %type <param_list> parameter_list
 
@@ -104,10 +118,15 @@ printd:
 term:
       tok_identifier { debugBison(7);  $$ = new IdentifierAST(std::string($1)); free($1); }
     | tok_double_literal { debugBison(8);  $$ = new NumberAST($1); }
+    | tok_string_literal 
+    | tok_bool_literal
     ;
+
+declaration: tok_int | tok_real | tok_boolean | tok_string | tok_char {debugBison(8); $$=$1;} ;
 
 /* Assignment: create an AST node representing an assignment. */
 assignment:
+    declaration tok_identifier '=' expression ';' |
       tok_identifier '=' expression ';'  {  debugBison(9); $$ = new AssignmentAST(std::string($1), $3); free($1); }
     ;
 
