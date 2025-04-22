@@ -27,9 +27,29 @@
         }                                                                                    \
     } while (0)
 
-Value *NumberAST::codegen()
+Value *CharLiteralAST::codegen()
+{
+    // implement
+}
+
+Value *StringLiteralAST::codegen()
+{
+    // implement
+}
+
+Value *IntegerLiteralAST::codegen()
+{
+    // implement
+}
+
+Value *RealLiteralAST::codegen()
 {
     return createDoubleConstant(value);
+}
+
+Value *DateLiteralAST::codegen()
+{
+    // implement
 }
 
 Value *IdentifierAST::codegen()
@@ -254,7 +274,18 @@ Value *ForAST::codegen()
 
     return nullptr; // No value is returned
 }
-
+Value *WhileAST::codegen()
+{
+    // implement
+}
+Value *RepeatAST::codegen()
+{
+    // implement
+}
+Value *ProcedureAST::codegen()
+{
+    // implement
+}
 Value *FuncAST::codegen()
 {
 

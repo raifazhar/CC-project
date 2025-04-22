@@ -189,6 +189,18 @@ public:
     Value *codegen() override;
 };
 
+class RepeatAST : public ASTNode
+{
+public:
+    ASTNode *condition;
+    std::vector<ASTNode *> body;
+
+    RepeatAST(ASTNode *cond, const std::vector<ASTNode *> &bodyStatements)
+        : condition(cond), body(bodyStatements) {}
+
+    Value *codegen() override;
+};
+
 class ProcedureAST : public ASTNode
 {
 public:
