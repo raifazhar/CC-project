@@ -87,7 +87,7 @@ root:
 
 statements:
       statement { $$ = new std::vector<ASTNode*>(); if ($1) $$->push_back($1); }
-    | statements statement { if (!$1) $$ = new std::vector<ASTNode*>(); $$->push_back($2); }
+    | statements statement { $$ = $1; if ($2) $$->push_back($2); }
 ;
 
 statement:
