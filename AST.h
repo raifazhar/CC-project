@@ -14,12 +14,62 @@ public:
     virtual Value *codegen() = 0; // Pure virtual function for code generation
 };
 
-class NumberAST : public ASTNode
+class TypeAST : public ASTNode
+{
+public:
+    std::string type;
+
+    TypeAST(const std::string &t) : type(t) {}
+    Value *codegen() override;
+};
+
+class CharLiteralAST : public ASTNode
+{
+public:
+    char value;
+
+    CharLiteralAST(char val) : value(val) {}
+
+    Value *codegen() override;
+};
+
+class StringLiteralAST : public ASTNode
+{
+public:
+    std::string value;
+
+    StringLiteralAST(const std::string &val) : value(val) {}
+
+    Value *codegen() override;
+};
+
+class IntegerLiteralAST : public ASTNode
+{
+public:
+    int value;
+
+    IntegerLiteralAST(int val) : value(val) {}
+
+    Value *codegen() override;
+};
+
+class RealLiteralAST : public ASTNode
 {
 public:
     double value;
 
-    NumberAST(double val) : value(val) {}
+    RealLiteralAST(double val) : value(val) {}
+
+    Value *codegen() override;
+};
+
+class DateLiteralAST : public ASTNode
+{
+public:
+    std::string value;
+
+    DateLiteralAST(const std::string &val) : value(val) {}
+
     Value *codegen() override;
 };
 
@@ -56,6 +106,17 @@ public:
 
     Value *codegen() override;
     Value *codegen_add_one();
+};
+class UnaryOpAST : public ASTNode
+{
+public:
+    char op; // For operations like '-', '!', etc.
+    ASTNode *operand;
+
+    UnaryOpAST(char opr, ASTNode *operandNode)
+        : op(opr), operand(operandNode) {}
+
+    Value *codegen() override;
 };
 
 class PrintStrAST : public ASTNode
@@ -116,6 +177,31 @@ public:
 
     Value *codegen() override;
 };
+class WhileAST : public ASTNode
+{
+public:
+    ASTNode *condition;
+    std::vector<ASTNode *> body;
+
+    WhileAST(ASTNode *cond, const std::vector<ASTNode *> &bodyStatements)
+        : condition(cond), body(bodyStatements) {}
+
+    Value *codegen() override;
+};
+
+class ProcedureAST : public ASTNode
+{
+public:
+    std::string name;
+    std::vector<std::string> parameters;
+    std::vector<ASTNode *> statementsBlock;
+
+    ProcedureAST(const std::string &procName, const std::vector<std::string> &params,
+                 const std::vector<ASTNode *> &stmtBlock)
+        : name(procName), parameters(params), statementsBlock(stmtBlock) {}
+
+    Value *codegen() override;
+};
 
 class FuncAST : public ASTNode
 {
@@ -140,6 +226,15 @@ public:
     FuncCallAST(const std::string &funcName, const std::vector<ASTNode *> &args)
         : name(funcName), arguments(args) {}
 
+    Value *codegen() override;
+};
+
+class ReturnAST : public ASTNode
+{
+public:
+    ASTNode *expression;
+
+    ReturnAST(ASTNode *expr) : expression(expr) {}
     Value *codegen() override;
 };
 
