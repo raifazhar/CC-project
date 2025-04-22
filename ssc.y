@@ -37,10 +37,18 @@
 %token <boolean_literal> tok_Bool_Literal  
 %token <date_literal> tok_Date_Literal
 
-%token tok_Printd tok_Prints tok_Declare tok_If tok_Else tok_For tok_Return tok_Returns tok_Function tok_Def
-
+%token tok_Printd tok_Prints
+%token tok_Declare
+%token tok_If tok_Else tok_End_If
+%token tok_While tok_End_While
+%token tok_Repeat tok_Until
+%token tok_For tok_Next
+%token tok_Procedure tok_End_Procedure
+%token tok_Function tok_End_Function tok_Returns
+%token tok_Call
 %token tok_Int tok_Real tok_Boolean tok_Char tok_String tok_Date
 
+%token tok_Indent tok_Dedent tok_Newline
 %token tok_And tok_Or
 %token tok_AddOne "++"
 %token tok_SubOne "--"
@@ -51,7 +59,9 @@
 
 %left '+' '-' '*' '/' '<' '>' tok_LE tok_GE tok_EQ tok_NEQ tok_AddOne tok_SubOne
 
-%type <ast_node> term expression comparison statement assignment printd prints if_stmt for_stmt for_assign func_stmt func_call_stmt declaration type
+%type <ast_node> statement assignment if_stmt for_stmt for_assign while_stmt repeat_stmt
+%type <ast_node> function_stmt procedure_stmt func_call_stmt
+%type <ast_node> term expression comparison printd prints  declaration type
 %type <stmt_list> statements argument_list
 %type <param_list> parameter_list
 
@@ -87,8 +97,12 @@ statement:
     | prints { $$ = $1; }
     | if_stmt { $$ = $1; }
     | for_stmt { $$ = $1; }
-    | func_stmt { $$ = $1; }
+    | while_stmt { $$ = $1; }
+    | repeat_stmt { $$ = $1; }
+    | procedure_stmt { $$ = $1; }
+    | function_stmt { $$ = $1; }
     | func_call_stmt { $$ = $1; }
+    | declaration ';' { $$ = $1; }
 ;
 
 prints:
@@ -120,7 +134,7 @@ declaration:
 ;
 
 assignment:
-    tok_Identifier '=' expression ';' {
+    tok_Identifier '=' expression {
         $$ = new AssignmentAST(std::string($1), $3); free($1);
     }
 ;
@@ -150,11 +164,22 @@ comparison:
 ;
 
 if_stmt:
-      tok_If '(' comparison ')' '{' statements '}' { $$ = new IfAST($3, *$6, {}); }
-    | tok_If '(' comparison ')' '{' statements '}' tok_Else '{' statements '}' { $$ = new IfAST($3, *$6, *$10); }
-    | tok_If '(' comparison ')' '{' statements '}' tok_Else tok_If '(' comparison ')' '{' statements '}' {}
-    ;
+      tok_If comparison tok_Newline tok_Indent statements tok_Dedent tok_End_If tok_Newline
+        {
+            $$ = new IfAST($2, *$5, {});
+        }
+    | tok_If comparison tok_Newline tok_Indent statements tok_Dedent tok_Else tok_Newline tok_Indent statements tok_Dedent tok_End_If tok_Newline
+        {
+            $$ = new IfAST($2, *$5, *$10);
+        }
+    | tok_If comparison tok_Newline tok_Indent statements tok_Dedent tok_Else if_stmt tok_End_If tok_Newline
+        {
+            std::vector<ASTNode*> else_block;
+            else_block.push_back($8); // nested if_stmt
+            $$ = new IfAST($2, *$5, else_block);
+        }
 ;
+
 
 for_assign:
     tok_Identifier '=' expression { $$ = new AssignmentAST(std::string($1), $3); free($1); }
@@ -167,6 +192,16 @@ for_stmt:
     | tok_For '(' comparison ';' expression ')' '{' statements '}' {
           $$ = new ForAST(nullptr, $3, $5, *$8);
       }
+;
+
+while_stmt:
+      tok_While comparison tok_Newline tok_Indent statements tok_Dedent tok_End_While tok_Newline
+        { $$ = new WhileAST($2, *$5); }
+;
+
+repeat_stmt:
+      tok_Repeat tok_Newline tok_Indent statements tok_Dedent tok_Until comparison tok_Newline
+        { $$ = new RepeatAST(*$3, $6); }
 ;
 
 parameter_list:
@@ -183,9 +218,15 @@ parameter_list:
       }
 ;
 
-func_stmt:
-    tok_Def tok_Identifier '(' parameter_list ')' '{' statements '}' {
-        $$ = new FuncAST(std::string($2), *$4, *$7);
+procedure_stmt:
+    tok_Procedure tok_Identifier '(' parameter_list ')' '{' statements '}' tok_End_Procedure {
+        $$ = new FuncAST(std::string($2), *$4, *$7, false);
+    }
+;
+
+function_stmt:
+    tok_Function tok_Identifier '(' parameter_list ')' ':' type '{' statements '}' tok_Returns tok_End_Function {
+        $$ = new FuncAST(std::string($2), *$4, *$8, true, $7); // last param is return type
     }
 ;
 
@@ -204,7 +245,7 @@ argument_list:
 ;
 
 func_call_stmt:
-    tok_Identifier '(' argument_list ')' ';' {
+    tok_Call tok_Identifier '(' argument_list ')' {
         $$ = new FuncCallAST(std::string($1), *$3); 
     }
 ;
