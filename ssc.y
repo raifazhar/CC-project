@@ -20,6 +20,7 @@
 
 %union {
     char *identifier;
+    int integer_literal;
     double double_literal;
     char *string_literal;
     char char_literal;
@@ -31,6 +32,7 @@
 }
 
 %token <identifier> tok_Identifier
+%token <integer_literal> tok_Integer_Literal
 %token <double_literal> tok_Double_Literal
 %token <string_literal> tok_String_Literal
 %token <char_literal> tok_Char_Literal          
@@ -46,7 +48,7 @@
 %token tok_Procedure tok_End_Procedure
 %token tok_Function tok_End_Function tok_Returns tok_Return
 %token tok_Call
-%token tok_Int tok_Real tok_Boolean tok_Char tok_String tok_Date
+%token tok_Integer tok_Real tok_Boolean tok_Char tok_String tok_Date
 
 %token tok_Indent tok_Dedent tok_Newline
 %token tok_And tok_Or
@@ -113,15 +115,8 @@ printd:
     tok_Printd '(' term ')' ';' { $$ = new PrintDoubleAST($3); }
 ;
 
-term:
-      tok_Identifier { $$ = new IdentifierAST(std::string($1)); free($1); }
-    | tok_Double_Literal { $$ = new NumberAST($1); }
-    | tok_String_Literal { $$ = new StringAST(std::string($1)); }
-    | tok_Bool_Literal { $$ = new BoolAST($1); }
-;
-
 type:
-      tok_Int { $$ = new TypeAST("int"); }
+      tok_Integer { $$ = new TypeAST("int"); }
     | tok_Real { $$ = new TypeAST("real"); }
     | tok_Boolean { $$ = new TypeAST("boolean"); }
     | tok_String { $$ = new TypeAST("string"); }
@@ -138,6 +133,17 @@ assignment:
         $$ = new AssignmentAST(std::string($1), $3); free($1);
     }
 ;
+
+term:
+      tok_Identifier { $$ = new IdentifierAST(std::string($1)); free($1); }
+    | tok_Integer_Literal { }
+    | tok_Double_Literal { $$ = new NumberAST($1); }
+    | tok_String_Literal { }
+    | tok_Bool_Literal { }
+    | tok_Char_Literal { }
+    | tok_Date_Literal { }
+;
+
 
 expression:
       term { $$ = $1; }
@@ -183,19 +189,17 @@ if_stmt:
 
 
 for_stmt:
-    tok_For assignment tok_To expression tok_Step expression tok_Next tok_Identifier {
-        $$ = new ForAST($3, $5, $7, *$9); // $3: Start position, $5: End position, $7: STEP value, $9: Next identifier
-    }
+    tok_For assignment tok_To expression tok_Step expression tok_Next tok_Identifier { }
 ;
 
 while_stmt:
       tok_While comparison tok_Newline tok_Indent statements tok_Dedent tok_End_While tok_Newline
-        { $$ = new WhileAST($2, *$5); }
+        { }
 ;
 
 repeat_stmt:
       tok_Repeat tok_Newline tok_Indent statements tok_Dedent tok_Until comparison tok_Newline
-        { $$ = new RepeatAST(*$3, $6); }
+        {}
 ;
 
 parameter_list:
@@ -214,18 +218,18 @@ parameter_list:
 
 procedure_stmt:
     tok_Procedure tok_Identifier '(' parameter_list ')' '{' statements '}' tok_End_Procedure {
-        $$ = new FuncAST(std::string($2), *$4, *$7, false);
+        
     }
 ;
 
 function_stmt:
     tok_Function tok_Identifier '(' parameter_list ')' ':' type '{' statements '}' tok_Returns tok_End_Function {
-        $$ = new FuncAST(std::string($2), *$4, *$8, true, $7); // last param is return type
+        
     }
 ;
 
 return_stmt:
-    tok_Return expression ';' { $$ = new ReturnAST($2); }
+    tok_Return expression {  }
 ;
 
 argument_list:
