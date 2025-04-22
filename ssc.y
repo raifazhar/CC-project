@@ -42,9 +42,9 @@
 %token tok_If tok_Else tok_End_If
 %token tok_While tok_End_While
 %token tok_Repeat tok_Until
-%token tok_For tok_Next
+%token tok_For tok_Next tok_To tok_Step
 %token tok_Procedure tok_End_Procedure
-%token tok_Function tok_End_Function tok_Returns
+%token tok_Function tok_End_Function tok_Returns tok_Return
 %token tok_Call
 %token tok_Int tok_Real tok_Boolean tok_Char tok_String tok_Date
 
@@ -59,8 +59,8 @@
 
 %left '+' '-' '*' '/' '<' '>' tok_LE tok_GE tok_EQ tok_NEQ tok_AddOne tok_SubOne
 
-%type <ast_node> statement assignment if_stmt for_stmt for_assign while_stmt repeat_stmt
-%type <ast_node> function_stmt procedure_stmt func_call_stmt
+%type <ast_node> statement assignment if_stmt for_stmt while_stmt repeat_stmt
+%type <ast_node> function_stmt procedure_stmt func_call_stmt return_stmt
 %type <ast_node> term expression comparison printd prints  declaration type
 %type <stmt_list> statements argument_list
 %type <param_list> parameter_list
@@ -181,17 +181,11 @@ if_stmt:
 ;
 
 
-for_assign:
-    tok_Identifier '=' expression { $$ = new AssignmentAST(std::string($1), $3); free($1); }
-;
 
 for_stmt:
-      tok_For '(' for_assign ';' comparison ';' expression ')' '{' statements '}' {
-          $$ = new ForAST($3, $5, $7, *$10);
-      }
-    | tok_For '(' comparison ';' expression ')' '{' statements '}' {
-          $$ = new ForAST(nullptr, $3, $5, *$8);
-      }
+    tok_For assignment tok_To expression tok_Step expression tok_Next tok_Identifier {
+        $$ = new ForAST($3, $5, $7, *$9); // $3: Start position, $5: End position, $7: STEP value, $9: Next identifier
+    }
 ;
 
 while_stmt:
@@ -228,6 +222,10 @@ function_stmt:
     tok_Function tok_Identifier '(' parameter_list ')' ':' type '{' statements '}' tok_Returns tok_End_Function {
         $$ = new FuncAST(std::string($2), *$4, *$8, true, $7); // last param is return type
     }
+;
+
+return_stmt:
+    tok_Return expression ';' { $$ = new ReturnAST($2); }
 ;
 
 argument_list:
