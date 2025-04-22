@@ -61,9 +61,9 @@
 
 %left '+' '-' '*' '/' '<' '>' tok_LE tok_GE tok_EQ tok_NEQ tok_AddOne tok_SubOne
 
-%type <ast_node> statement assignment if_stmt for_stmt while_stmt repeat_stmt
+%type <ast_node> statement assignment if_stmt for_stmt while_stmt repeat_stmt statement_block
 %type <ast_node> function_stmt procedure_stmt func_call_stmt return_stmt
-%type <ast_node> term expression comparison printd prints  declaration type
+%type <ast_node> term expression comparison printd prints declaration type
 %type <stmt_list> statements argument_list
 %type <param_list> parameter_list
 
@@ -88,8 +88,8 @@ root:
 ;
 
 statements:
-      statement { $$ = new std::vector<ASTNode*>(); if ($1) $$->push_back($1); }
-    | statements statement { $$ = $1; if ($2) $$->push_back($2); }
+      statement tok_Newline { $$ = new std::vector<ASTNode*>(); if ($1) $$->push_back($1); }
+    | statements statement tok_Newline { $$ = $1; if ($2) $$->push_back($2); }
 ;
 
 statement:
@@ -169,16 +169,18 @@ comparison:
     | expression tok_NEQ expression { $$ = new ComparisonAST(6, $1, $3); }
 ;
 
+statement_block : tok_Newline tok_Indent statements tok_Dedent { $$=$2; }
+
 if_stmt:
-      tok_If comparison tok_Newline tok_Indent statements tok_Dedent tok_End_If tok_Newline
+      tok_If comparison statement_block tok_End_If 
         {
             $$ = new IfAST($2, *$5, {});
         }
-    | tok_If comparison tok_Newline tok_Indent statements tok_Dedent tok_Else tok_Newline tok_Indent statements tok_Dedent tok_End_If tok_Newline
+    | tok_If comparison  statement_block tok_Else statement_block tok_End_If 
         {
             $$ = new IfAST($2, *$5, *$10);
         }
-    | tok_If comparison tok_Newline tok_Indent statements tok_Dedent tok_Else if_stmt tok_End_If tok_Newline
+    | tok_If comparison statement_block tok_Else if_stmt tok_End_If 
         {
             std::vector<ASTNode*> else_block;
             else_block.push_back($8); // nested if_stmt
@@ -189,16 +191,16 @@ if_stmt:
 
 
 for_stmt:
-    tok_For assignment tok_To expression tok_Step expression tok_Next tok_Identifier { }
+    tok_For assignment tok_To expression tok_Step expression statement_block tok_Next tok_Identifier { }
 ;
 
 while_stmt:
-      tok_While comparison tok_Newline tok_Indent statements tok_Dedent tok_End_While tok_Newline
+      tok_While comparison statement_block tok_End_While 
         { }
 ;
 
 repeat_stmt:
-      tok_Repeat tok_Newline tok_Indent statements tok_Dedent tok_Until comparison tok_Newline
+      tok_Repeat statement_block tok_Until comparison 
         {}
 ;
 
@@ -217,15 +219,14 @@ parameter_list:
 ;
 
 procedure_stmt:
-    tok_Procedure tok_Identifier '(' parameter_list ')' '{' statements '}' tok_End_Procedure {
+    tok_Procedure tok_Identifier '(' parameter_list ')' statement_block tok_End_Procedure  {
         
     }
 ;
 
 function_stmt:
-    tok_Function tok_Identifier '(' parameter_list ')' ':' type '{' statements '}' tok_Returns tok_End_Function {
-        
-    }
+   tok_Function tok_Identifier '(' parameter_list ')' tok_Returns ':' type statement_block tok_Returns tok_End_Function 
+    { }
 ;
 
 return_stmt:
