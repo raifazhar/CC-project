@@ -15,6 +15,8 @@
 #include <vector>
 #include <string>
 #include <map>
+#include <stack>
+#include <utility>
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdio.h>
@@ -31,6 +33,5 @@ extern LLVMContext context;
 extern Module *module;
 extern IRBuilder<> builder;
 extern Function *mainFunction;
-extern std::map<std::string, Value *> SymbolTable;
 
 #endif // COMMON_INCLUDES_H

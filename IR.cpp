@@ -1,6 +1,6 @@
 #include "IR.h"
 
-std::map<std::string, Value *> SymbolTable;
+// std::map<std::string, Value *> SymbolTable;
 LLVMContext context;
 Module *module = nullptr;
 IRBuilder<> builder(context);
@@ -33,20 +33,14 @@ void printLLVMIR()
 
 Value *getFromSymbolTable(const std::string &id)
 {
-    // Search for the symbol in the table using a std::string key.
-    auto it = SymbolTable.find(id);
-    if (it != SymbolTable.end())
-    {
-        // Symbol found, return the associated value.
-        return it->second;
-    }
-    else
-    {
-        // Symbol not found, create a new AllocaInst and store it in the table.
-        Value *defaultValue = builder.CreateAlloca(builder.getDoubleTy(), nullptr, id);
-        SymbolTable[id] = defaultValue;
-        return defaultValue;
-    }
+    Value *val = symtab.lookupSymbol(id);
+    if (val)
+        return val;
+
+    // Symbol not found, create and store
+    Value *defaultValue = builder.CreateAlloca(builder.getDoubleTy(), nullptr, id);
+    symtab.setSymbol(id, defaultValue, builder.getDoubleTy());
+    return defaultValue;
 }
 
 void setDouble(const std::string &id, Value *value)

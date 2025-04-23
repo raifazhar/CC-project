@@ -2,7 +2,9 @@
 #define IR_H
 
 #include "common_includes.h" // Centralized includes
+#include "Symbol_Table.h"
 
+SymbolTable symtab;
 Value *getFromSymbolTable(const std::string &id);
 void setDouble(const std::string &id, Value *value);
 void printString(const std::string &str);

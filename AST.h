@@ -4,14 +4,15 @@
 #include "IR.h"
 #include <string>
 #include <vector>
-
+#include "Symbol_Table.h"
 using namespace llvm;
 
 class ASTNode
 {
 public:
     virtual ~ASTNode() = default; // Virtual destructor
-    virtual Value *codegen() = 0; // Pure virtual function for code generation
+    virtual void analyze(SymbolTable &symtab) = 0;
+    virtual llvm::Value *codegen() = 0;
 };
 
 class TypeAST : public ASTNode

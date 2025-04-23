@@ -1,5 +1,5 @@
 #include "AST.h"
-
+#include "IR.cpp"
 #include <llvm/Support/raw_ostream.h>
 #include <fstream>
 
@@ -306,7 +306,7 @@ Value *FuncAST::codegen()
 
         AllocaInst *alloca = builder.CreateAlloca(builder.getDoubleTy(), nullptr, parameters[i]);
         builder.CreateStore(paramVal, alloca);
-        SymbolTable[parameters[i]] = alloca;
+        symtab.setSymbol(parameters[i], alloca, builder.getDoubleTy());
 
         ++argIt;
     }
