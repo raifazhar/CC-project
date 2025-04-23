@@ -1,5 +1,6 @@
 // SymbolTable.cpp
 #include "Symbol_Table.h"
+#include "IR.h"
 #include <llvm/IR/IRBuilder.h>
 
 SymbolTable::SymbolTable(CodegenContext &ctx) : codegenContext(ctx) {}

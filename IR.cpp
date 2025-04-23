@@ -1,5 +1,21 @@
 #include "IR.h"
 
+extern char* yytext;
+extern int yylineno;
+
+// Global symbol table instance
+SymbolTable* globalSymbolTable = nullptr;
+
+void initSymbolTable(CodegenContext& ctx) {
+    if (!globalSymbolTable) {
+        globalSymbolTable = new SymbolTable(ctx);
+    }
+}
+
+SymbolTable* getSymbolTable() {
+    return globalSymbolTable;
+}
+
 // std::map<std::string, Value *> SymbolTable;
 LLVMContext context;
 Module *module = nullptr;
@@ -14,11 +30,21 @@ void initLLVM()
     mainFunction = Function::Create(mainTy, Function::ExternalLinkage, "main", module);
     BasicBlock *entry = BasicBlock::Create(context, "entry", mainFunction);
     builder.SetInsertPoint(entry);
+    
+    // Initialize symbol table with the current context
+    CodegenContext ctx(context, module, builder, mainFunction);
+    initSymbolTable(ctx);
 }
 
 void addReturnInstr()
 {
+    fprintf(stderr, "Adding return instruction\n");
+    if (!builder.GetInsertBlock()) {
+        fprintf(stderr, "Error: No insertion point set for return instruction\n");
+        return;
+    }
     builder.CreateRet(ConstantInt::get(context, APInt(32, 0)));
+    fprintf(stderr, "Return instruction added successfully\n");
 }
 
 Value *createDoubleConstant(double val)
@@ -28,18 +54,50 @@ Value *createDoubleConstant(double val)
 
 void printLLVMIR()
 {
-    module->print(errs(), nullptr);
+    fprintf(stderr, "Printing LLVM IR\n");
+    if (module == nullptr) {
+        fprintf(stderr, "Error: Module is null\n");
+        return;
+    }
+    
+    // Check if the module has any functions
+    if (module->empty()) {
+        fprintf(stderr, "Warning: Module has no functions\n");
+    } else {
+        fprintf(stderr, "Module has %zu functions\n", module->size());
+    }
+    
+    // Check if the main function has any basic blocks
+    if (mainFunction == nullptr) {
+        fprintf(stderr, "Error: Main function is null\n");
+    } else if (mainFunction->empty()) {
+        fprintf(stderr, "Warning: Main function has no basic blocks\n");
+    } else {
+        fprintf(stderr, "Main function has %zu basic blocks\n", mainFunction->size());
+        
+        // Check if the entry block has any instructions
+        BasicBlock *entry = &mainFunction->getEntryBlock();
+        if (entry->empty()) {
+            fprintf(stderr, "Warning: Entry block has no instructions\n");
+        } else {
+            fprintf(stderr, "Entry block has %zu instructions\n", entry->size());
+        }
+    }
+    
+    // Print the module to stdout for the output file
+    // Use a single print to avoid duplicates
+    module->print(outs(), nullptr);
 }
 
 Value *getFromSymbolTable(const std::string &id)
 {
-    Value *val = symtab.lookupSymbol(id);
+    Value *val = globalSymbolTable->lookupSymbol(id);
     if (val)
         return val;
 
     // Symbol not found, create and store
     Value *defaultValue = builder.CreateAlloca(builder.getDoubleTy(), nullptr, id);
-    symtab.setSymbol(id, defaultValue, builder.getDoubleTy());
+    globalSymbolTable->setSymbol(id, defaultValue, builder.getDoubleTy());
     return defaultValue;
 }
 
@@ -117,5 +175,13 @@ Value *performComparison(Value *lhs, Value *rhs, int op)
 
 void yyerror(const char *s)
 {
-    fprintf(stderr, "Parse error: %s\n", s);
+    fprintf(stderr, "Parse error at line %d: %s\n", yylineno, s);
+    // Print the current token and context
+    fprintf(stderr, "Current token: %s\n", yytext);
+    // Print the current line from the input file
+    fprintf(stderr, "Current line: ");
+    for (int i = 0; i < strlen(yytext); i++) {
+        fprintf(stderr, "%c", yytext[i]);
+    }
+    fprintf(stderr, "\n");
 }

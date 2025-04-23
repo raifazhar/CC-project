@@ -16,6 +16,7 @@
 %code requires {
     #include "AST.h"
     #include <vector>
+    class TypeAST;  // Forward declaration
 }
 
 %union {
@@ -27,6 +28,7 @@
     bool boolean_literal;
     char* date_literal;
     ASTNode* ast_node;
+    TypeAST* type_node;
     std::vector<ASTNode*>* stmt_list;
     std::vector<std::string>* param_list;
 }
@@ -63,7 +65,8 @@
 
 %type <ast_node> statement assignment if_stmt for_stmt while_stmt repeat_stmt statement_block
 %type <ast_node> function_stmt procedure_stmt func_call_stmt return_stmt
-%type <ast_node> term expression comparison printd prints declaration type
+%type <ast_node> term expression comparison printd prints declaration
+%type <type_node> type
 %type <stmt_list> statements argument_list
 %type <param_list> parameter_list
 
@@ -73,23 +76,68 @@
 
 root:
     statements {
+        fprintf(stderr, "Processing %zu statements\n", $1->size());
         for (ASTNode* node : *$1) {
+            fprintf(stderr, "Codegen for node type: %s\n", typeid(*node).name());
             node->codegen();
             delete node;
         }
         delete $1;
         addReturnInstr();
+        fprintf(stderr, "Added return instruction\n");
 
         if (verifyModule(*module, &errs())) {
             fprintf(stderr, "Module verification failed!\n");
             exit(EXIT_FAILURE);
         }
+        fprintf(stderr, "Module verification passed\n");
+    }
+    | statements tok_Newline {
+        fprintf(stderr, "Processing %zu statements\n", $1->size());
+        for (ASTNode* node : *$1) {
+            fprintf(stderr, "Codegen for node type: %s\n", typeid(*node).name());
+            node->codegen();
+            delete node;
+        }
+        delete $1;
+        addReturnInstr();
+        fprintf(stderr, "Added return instruction\n");
+
+        if (verifyModule(*module, &errs())) {
+            fprintf(stderr, "Module verification failed!\n");
+            exit(EXIT_FAILURE);
+        }
+        fprintf(stderr, "Module verification passed\n");
+    }
+    | statements statement {
+        fprintf(stderr, "Processing %zu statements\n", $1->size());
+        for (ASTNode* node : *$1) {
+            fprintf(stderr, "Codegen for node type: %s\n", typeid(*node).name());
+            node->codegen();
+            delete node;
+        }
+        if ($2) {
+            fprintf(stderr, "Codegen for node type: %s\n", typeid(*$2).name());
+            $2->codegen();
+            delete $2;
+        }
+        delete $1;
+        addReturnInstr();
+        fprintf(stderr, "Added return instruction\n");
+
+        if (verifyModule(*module, &errs())) {
+            fprintf(stderr, "Module verification failed!\n");
+            exit(EXIT_FAILURE);
+        }
+        fprintf(stderr, "Module verification passed\n");
     }
 ;
 
 statements:
       statement tok_Newline { $$ = new std::vector<ASTNode*>(); if ($1) $$->push_back($1); }
     | statements statement tok_Newline { $$ = $1; if ($2) $$->push_back($2); }
+    | statements tok_Newline { $$ = $1; }
+    | statement { $$ = new std::vector<ASTNode*>(); if ($1) $$->push_back($1); }
 ;
 
 statement:
@@ -104,7 +152,7 @@ statement:
     | procedure_stmt { $$ = $1; }
     | function_stmt { $$ = $1; }
     | func_call_stmt { $$ = $1; }
-    | declaration ';' { $$ = $1; }
+    | declaration { $$ = $1; }
 ;
 
 prints:
@@ -125,7 +173,10 @@ type:
 ;
 
 declaration:
-    tok_Declare tok_Identifier ':' type
+    tok_Declare tok_Identifier ':' type {
+        $$ = new DeclarationAST(std::string($2), dynamic_cast<TypeAST*>($4));
+        free($2);
+    }
 ;
 
 assignment:
@@ -136,12 +187,12 @@ assignment:
 
 term:
       tok_Identifier { $$ = new IdentifierAST(std::string($1)); free($1); }
-    | tok_Integer_Literal { }
+    | tok_Integer_Literal { $$ = new IntegerLiteralAST($1); }
     | tok_Double_Literal { $$ = new NumberAST($1); }
-    | tok_String_Literal { }
-    | tok_Bool_Literal { }
-    | tok_Char_Literal { }
-    | tok_Date_Literal { }
+    | tok_String_Literal { $$ = new StringLiteralAST(std::string($1)); free($1); }
+    | tok_Bool_Literal { $$ = new BooleanLiteralAST($1); }
+    | tok_Char_Literal { $$ = new CharLiteralAST($1); }
+    | tok_Date_Literal { $$ = new DateLiteralAST(std::string($1)); free($1); }
 ;
 
 
@@ -169,39 +220,47 @@ comparison:
     | expression tok_NEQ expression { $$ = new ComparisonAST(6, $1, $3); }
 ;
 
-statement_block : tok_Newline tok_Indent statements tok_Dedent { $$=$2; }
+statement_block : tok_Newline tok_Indent statements tok_Dedent { $$ = new StatementBlockAST(*$3); }
 
 if_stmt:
       tok_If comparison statement_block tok_End_If 
         {
-            $$ = new IfAST($2, *$5, {});
+            $$ = new IfAST($2, dynamic_cast<StatementBlockAST*>($3)->statements, {});
         }
-    | tok_If comparison  statement_block tok_Else statement_block tok_End_If 
+    | tok_If comparison statement_block tok_Else statement_block tok_End_If 
         {
-            $$ = new IfAST($2, *$5, *$10);
+            $$ = new IfAST($2, dynamic_cast<StatementBlockAST*>($3)->statements, dynamic_cast<StatementBlockAST*>($5)->statements);
         }
     | tok_If comparison statement_block tok_Else if_stmt tok_End_If 
         {
             std::vector<ASTNode*> else_block;
-            else_block.push_back($8); // nested if_stmt
-            $$ = new IfAST($2, *$5, else_block);
+            else_block.push_back($5); // nested if_stmt
+            $$ = new IfAST($2, dynamic_cast<StatementBlockAST*>($3)->statements, else_block);
         }
 ;
 
 
 
 for_stmt:
-    tok_For assignment tok_To expression tok_Step expression statement_block tok_Next tok_Identifier { }
-;
+    tok_For assignment tok_To expression tok_Step expression statement_block tok_Next tok_Identifier {
+        if (strcmp($9, ((AssignmentAST*)$2)->identifier.c_str()) != 0) {
+            yyerror("Loop variable mismatch");
+            YYERROR;
+        }
+        $$ = new ForAST($2, $4, $6, dynamic_cast<StatementBlockAST*>($7)->statements);
+        free($9);
+    };
 
 while_stmt:
-      tok_While comparison statement_block tok_End_While 
-        { }
+      tok_While comparison statement_block tok_End_While {
+          $$ = new WhileAST($2, dynamic_cast<StatementBlockAST*>($3)->statements);
+      }
 ;
 
 repeat_stmt:
-      tok_Repeat statement_block tok_Until comparison 
-        {}
+      tok_Repeat statement_block tok_Until comparison {
+          $$ = new RepeatAST($4, dynamic_cast<StatementBlockAST*>($2)->statements);
+      }
 ;
 
 parameter_list:
@@ -219,19 +278,26 @@ parameter_list:
 ;
 
 procedure_stmt:
-    tok_Procedure tok_Identifier '(' parameter_list ')' statement_block tok_End_Procedure  {
-        
+    tok_Procedure tok_Identifier '(' parameter_list ')' statement_block tok_End_Procedure {
+        StatementBlockAST* block = dynamic_cast<StatementBlockAST*>($6);
+        $$ = new ProcedureAST(std::string($2), *$4, block->statements);
+        free($2);
     }
 ;
 
 function_stmt:
-   tok_Function tok_Identifier '(' parameter_list ')' tok_Returns ':' type statement_block tok_Returns tok_End_Function 
-    { }
+   tok_Function tok_Identifier '(' parameter_list ')' tok_Returns type statement_block tok_End_Function 
+    { 
+        StatementBlockAST* block = dynamic_cast<StatementBlockAST*>($7);
+        $$ = new FuncAST(std::string($2), *$4, block->statements, (TypeAST*)($7));  // Use C-style cast with parentheses
+        free($2);
+    }
 ;
 
 return_stmt:
-    tok_Return expression {  }
-;
+    tok_Return expression {
+        $$ = new ReturnAST($2);
+    };
 
 argument_list:
       expression {
@@ -249,7 +315,7 @@ argument_list:
 
 func_call_stmt:
     tok_Call tok_Identifier '(' argument_list ')' {
-        $$ = new FuncCallAST(std::string($1), *$3); 
+        $$ = new FuncCallAST(std::string($2), *$4); 
     }
 ;
 
@@ -258,15 +324,26 @@ func_call_stmt:
 int main(int argc, char** argv) {
     if (argc > 1) {
         FILE *fp = fopen(argv[1], "r");
+        if (fp == NULL) {
+            fprintf(stderr, "Error opening file: %s\n", argv[1]);
+            return EXIT_FAILURE;
+        }
         yyin = fp;
+        fprintf(stderr, "Opened input file: %s\n", argv[1]);
     } 
     if (yyin == NULL) {
         yyin = stdin;
+        fprintf(stderr, "Using stdin as input\n");
     }
 
     initLLVM();
+    fprintf(stderr, "LLVM initialized\n");
+    
     int parserResult = yyparse();
+    fprintf(stderr, "Parser result: %d\n", parserResult);
+    
     printLLVMIR();
+    fprintf(stderr, "LLVM IR printed\n");
 
     return EXIT_SUCCESS;
 }

@@ -1,0 +1,6 @@
+Entering codegen insertion point set in virtual Value *DeclarationAST::codegen()
+Entering codegen insertion point set in virtual Value *DeclarationAST::codegen()
+Entering codegen insertion point set in virtual Value *DeclarationAST::codegen()
+Entering codegen insertion point set in virtual Value *DeclarationAST::codegen()
+Entering codegen insertion point set in virtual Value *DeclarationAST::codegen()
+Entering codegen insertion point set in virtual Value *DeclarationAST::codegen()

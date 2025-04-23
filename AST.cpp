@@ -1,5 +1,5 @@
 #include "AST.h"
-#include "IR.cpp"
+#include "IR.h"
 #include <llvm/Support/raw_ostream.h>
 #include <fstream>
 
@@ -27,19 +27,66 @@
         }                                                                                    \
     } while (0)
 
+Value *TypeAST::codegen()
+{
+    DEBUG_PRINT_FUNCTION();
+    // Create a constant value of the appropriate type
+    if (type == "int" || type == "INTEGER")
+    {
+        return ConstantInt::get(Type::getInt32Ty(context), 0);
+    }
+    else if (type == "real" || type == "REAL")
+    {
+        return ConstantFP::get(Type::getDoubleTy(context), 0.0);
+    }
+    else if (type == "boolean" || type == "BOOLEAN")
+    {
+        return ConstantInt::get(Type::getInt1Ty(context), 0);
+    }
+    else if (type == "char" || type == "CHAR")
+    {
+        return ConstantInt::get(Type::getInt8Ty(context), 0);
+    }
+    else if (type == "string" || type == "STRING")
+    {
+        return ConstantPointerNull::get(PointerType::get(Type::getInt8Ty(context), 0));
+    }
+    else if (type == "date" || type == "DATE")
+    {
+        return ConstantPointerNull::get(PointerType::get(Type::getInt8Ty(context), 0));
+    }
+    else
+    {
+        errs() << "Unknown type: " << type << "\n";
+        return nullptr;
+    }
+}
+
 Value *CharLiteralAST::codegen()
 {
-    // implement
+    DEBUG_PRINT_FUNCTION();
+    return ConstantInt::get(Type::getInt8Ty(context), value);
 }
 
 Value *StringLiteralAST::codegen()
 {
-    // implement
+    DEBUG_PRINT_FUNCTION();
+    // Create a global string constant
+    Constant *strConst = ConstantDataArray::getString(context, value);
+    GlobalVariable *gvar = new GlobalVariable(
+        *module,
+        strConst->getType(),
+        true,
+        GlobalValue::PrivateLinkage,
+        strConst,
+        ".str");
+    return gvar;
 }
 
 Value *IntegerLiteralAST::codegen()
 {
-    // implement
+    DEBUG_PRINT_FUNCTION();
+    return ConstantInt::get(Type::getInt32Ty(context), value);
 }
 
 Value *RealLiteralAST::codegen()
@@ -49,7 +96,17 @@ Value *RealLiteralAST::codegen()
 
 Value *DateLiteralAST::codegen()
 {
-    // implement
+    DEBUG_PRINT_FUNCTION();
+    // Create a global string constant for the date
+    Constant *strConst = ConstantDataArray::getString(context, value);
+    GlobalVariable *gvar = new GlobalVariable(
+        *module,
+        strConst->getType(),
+        true,
+        GlobalValue::PrivateLinkage,
+        strConst,
+        ".date");
+    return gvar;
 }
 
 Value *IdentifierAST::codegen()
@@ -177,7 +234,7 @@ Value *PrintStrAST::codegen()
 {
     DEBUG_PRINT_FUNCTION();
     printString(str);
-    return NULL; // No value produced.
+    return nullptr; // No value produced.
 }
 
 Value *PrintDoubleAST::codegen()
@@ -185,7 +242,7 @@ Value *PrintDoubleAST::codegen()
     DEBUG_PRINT_FUNCTION();
     Value *val = expression->codegen();
     printDouble(val);
-    return NULL; // No value produced.
+    return nullptr; // No value produced.
 }
 
 Value *ComparisonAST::codegen()
@@ -276,19 +333,63 @@ Value *ForAST::codegen()
 }
 Value *WhileAST::codegen()
 {
-    // implement
+    DEBUG_PRINT_FUNCTION();
+    Function *function = builder.GetInsertBlock()->getParent();
+    BasicBlock *condBB = BasicBlock::Create(context, "while.cond", function);
+    BasicBlock *bodyBB = BasicBlock::Create(context, "while.body", function);
+    BasicBlock *endBB = BasicBlock::Create(context, "while.end", function);
+
+    // Branch to condition block
+    builder.CreateBr(condBB);
+
+    // Emit condition
+    builder.SetInsertPoint(condBB);
+    Value *condVal = condition->codegen();
+    builder.CreateCondBr(condVal, bodyBB, endBB);
+
+    // Emit body
+    builder.SetInsertPoint(bodyBB);
+    for (auto *stmt : body)
+    {
+        stmt->codegen();
+    }
+    builder.CreateBr(condBB);
+
+    // Continue with end block
+    builder.SetInsertPoint(endBB);
+    return nullptr;
 }
 Value *RepeatAST::codegen()
 {
-    // implement
+    DEBUG_PRINT_FUNCTION();
+    Function *function = builder.GetInsertBlock()->getParent();
+    BasicBlock *bodyBB = BasicBlock::Create(context, "repeat.body", function);
+    BasicBlock *condBB = BasicBlock::Create(context, "repeat.cond", function);
+    BasicBlock *endBB = BasicBlock::Create(context, "repeat.end", function);
+
+    // Branch to body block
+    builder.CreateBr(bodyBB);
+
+    // Emit body
+    builder.SetInsertPoint(bodyBB);
+    for (auto *stmt : body)
+    {
+        stmt->codegen();
+    }
+    builder.CreateBr(condBB);
+
+    // Emit condition
+    builder.SetInsertPoint(condBB);
+    Value *condVal = condition->codegen();
+    builder.CreateCondBr(condVal, endBB, bodyBB);
+
+    // Continue with end block
+    builder.SetInsertPoint(endBB);
+    return nullptr;
 }
 Value *ProcedureAST::codegen()
 {
-    // implement
-}
-Value *FuncAST::codegen()
-{
-
+    DEBUG_PRINT_FUNCTION();
     std::vector<Type *> paramTypes(parameters.size(), Type::getDoubleTy(context));
     FunctionType *funcType = FunctionType::get(Type::getVoidTy(context), paramTypes, false);
 
@@ -306,7 +407,7 @@ Value *FuncAST::codegen()
 
         AllocaInst *alloca = builder.CreateAlloca(builder.getDoubleTy(), nullptr, parameters[i]);
         builder.CreateStore(paramVal, alloca);
-        symtab.setSymbol(parameters[i], alloca, builder.getDoubleTy());
+        globalSymbolTable->setSymbol(parameters[i], alloca, builder.getDoubleTy());
 
         ++argIt;
     }
@@ -317,6 +418,47 @@ Value *FuncAST::codegen()
     }
 
     builder.CreateRetVoid();
+    builder.SetInsertPoint(prevInsertBlock);
+    return function;
+}
+
+Value *FuncAST::codegen()
+{
+    DEBUG_PRINT_FUNCTION();
+    std::vector<Type *> paramTypes(parameters.size(), Type::getDoubleTy(context));
+    Type *returnType = Type::getDoubleTy(context); // Functions return double by default
+    FunctionType *funcType = FunctionType::get(returnType, paramTypes, false);
+
+    Function *function = Function::Create(funcType, Function::ExternalLinkage, name, *module);
+
+    BasicBlock *prevInsertBlock = builder.GetInsertBlock();
+    BasicBlock *entryBB = BasicBlock::Create(context, "entry", function);
+    builder.SetInsertPoint(entryBB);
+
+    auto argIt = function->arg_begin();
+    for (size_t i = 0; i < parameters.size(); ++i)
+    {
+        Value *paramVal = &*argIt;
+        paramVal->setName(parameters[i]);
+
+        AllocaInst *alloca = builder.CreateAlloca(builder.getDoubleTy(), nullptr, parameters[i]);
+        builder.CreateStore(paramVal, alloca);
+        globalSymbolTable->setSymbol(parameters[i], alloca, builder.getDoubleTy());
+
+        ++argIt;
+    }
+
+    Value *returnValue = nullptr;
+    for (auto *stmt : statementsBlock)
+    {
+        returnValue = stmt->codegen();
+    }
+
+    if (!returnValue)
+    {
+        returnValue = ConstantFP::get(Type::getDoubleTy(context), 0.0);
+    }
+    builder.CreateRet(returnValue);
     builder.SetInsertPoint(prevInsertBlock);
     return function;
 }
@@ -337,4 +479,107 @@ Value *FuncCallAST::codegen()
     }
 
     return builder.CreateCall(callee, args);
+}
+
+Value *DeclarationAST::codegen()
+{
+    DEBUG_PRINT_FUNCTION();
+    errs() << "Generating code for declaration: " << identifier << " of type " << type->type << "\n";
+
+    // Create an alloca instruction for the variable
+    AllocaInst *alloca = builder.CreateAlloca(builder.getDoubleTy(), nullptr, identifier);
+
+    // Initialize the variable with a default value based on its type
+    Value *defaultValue;
+    if (type->type == "int" || type->type == "INTEGER")
+    {
+        defaultValue = ConstantInt::get(Type::getInt32Ty(context), 0);
+    }
+    else if (type->type == "real" || type->type == "REAL")
+    {
+        defaultValue = ConstantFP::get(Type::getDoubleTy(context), 0.0);
+    }
+    else if (type->type == "boolean" || type->type == "BOOLEAN")
+    {
+        defaultValue = ConstantInt::get(Type::getInt1Ty(context), 0);
+    }
+    else if (type->type == "char" || type->type == "CHAR")
+    {
+        defaultValue = ConstantInt::get(Type::getInt8Ty(context), 0);
+    }
+    else if (type->type == "string" || type->type == "STRING")
+    {
+        defaultValue = ConstantPointerNull::get(PointerType::get(Type::getInt8Ty(context), 0));
+    }
+    else if (type->type == "date" || type->type == "DATE")
+    {
+        defaultValue = ConstantPointerNull::get(PointerType::get(Type::getInt8Ty(context), 0));
+    }
+    else
+    {
+        defaultValue = ConstantFP::get(Type::getDoubleTy(context), 0.0);
+    }
+
+    // Store the default value in the alloca
+    builder.CreateStore(defaultValue, alloca);
+
+    // Store the alloca in the symbol table
+    globalSymbolTable->setSymbol(identifier, alloca, builder.getDoubleTy());
+    errs() << "Declaration codegen completed for: " << identifier << "\n";
+    return alloca;
+}
+
+Value *NumberAST::codegen()
+{
+    DEBUG_PRINT_FUNCTION();
+    return createDoubleConstant(value);
+}
+
+Value *LogicalOpAST::codegen()
+{
+    DEBUG_PRINT_FUNCTION();
+    Value *lhsVal = lhs->codegen();
+    Value *rhsVal = rhs->codegen();
+
+    if (op == "and")
+    {
+        return builder.CreateAnd(lhsVal, rhsVal, "andtmp");
+    }
+    else if (op == "or")
+    {
+        return builder.CreateOr(lhsVal, rhsVal, "ortmp");
+    }
+    else
+    {
+        errs() << "Unknown logical operator: " << op << "\n";
+        return nullptr;
+    }
+}
+
+Value *StatementBlockAST::codegen()
+{
+    DEBUG_PRINT_FUNCTION();
+    Value *lastValue = nullptr;
+    for (auto *stmt : statements)
+    {
+        if (stmt)
+        {
+            lastValue = stmt->codegen();
+        }
+    }
+    return lastValue;
+}
+
+Value *BooleanLiteralAST::codegen()
+{
+    DEBUG_PRINT_FUNCTION();
+    return ConstantInt::get(Type::getInt1Ty(context), value);
+}
+
+Value *ReturnAST::codegen()
+{
+    DEBUG_PRINT_FUNCTION();
+    Value *returnValue = expression->codegen();
+    builder.CreateRet(returnValue);
+    return returnValue;
 }

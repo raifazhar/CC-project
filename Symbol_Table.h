@@ -3,8 +3,7 @@
 #define SYMBOL_TABLE_H
 
 #include "common_includes.h"
-
-class CodegenContext; // Forward declaration
+#include "CodegenContext.h"
 
 class SymbolTable
 {

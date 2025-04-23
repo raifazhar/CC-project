@@ -3,8 +3,11 @@
 
 #include "common_includes.h" // Centralized includes
 #include "Symbol_Table.h"
+#include "CodegenContext.h"
 
-SymbolTable symtab;
+extern SymbolTable* globalSymbolTable;
+void initSymbolTable(CodegenContext& ctx);
+SymbolTable* getSymbolTable();
 Value *getFromSymbolTable(const std::string &id);
 void setDouble(const std::string &id, Value *value);
 void printString(const std::string &str);
