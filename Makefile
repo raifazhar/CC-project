@@ -3,6 +3,13 @@
 # Compiler
 CXX = clang++
 LLVM_CONFIG = llvm-config
+
+# LLVM configuration for Windows/MinGW
+LLVM_INCLUDE = -IC:/msys64/mingw64/include
+LLVM_CXXFLAGS = -std=c++17 $(LLVM_INCLUDE) -fno-exceptions -funwind-tables -D_FILE_OFFSET_BITS=64 -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -D__STDC_LIMIT_MACROS
+LLVM_LDFLAGS = -LC:/msys64/mingw64/lib
+LLVM_LIBS = -lLLVM-19
+
 LLC = llc  # LLVM static compiler
 OPT = opt  # LLVM optimizer
 
@@ -41,11 +48,6 @@ PARSER_H = $(BUILD_DIR)/ssc.tab.h
 IR_OBJ = $(OBJ_DIR)/IR.o
 AST_OBJ = $(OBJ_DIR)/AST.o
 SYMBOL_TABLE_OBJ = $(OBJ_DIR)/Symbol_Table.o
-
-# LLVM configuration
-LLVM_CXXFLAGS = $(shell $(LLVM_CONFIG) --cxxflags)
-LLVM_LDFLAGS = $(shell $(LLVM_CONFIG) --ldflags)
-LLVM_LIBS = $(shell $(LLVM_CONFIG) --libs)
 
 # Include paths
 INCLUDE_PATHS = -I$(SRC_DIR)

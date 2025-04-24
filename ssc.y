@@ -3,6 +3,7 @@
     #include <stdlib.h>
     extern int yyparse();
     extern int yylex();
+    extern int yylineno;  // Add this line to declare yylineno
     extern FILE *yyin;
     #define YYDEBUG 1
 
@@ -61,13 +62,13 @@
 %token tok_LE "<="
 %token tok_GE ">="
 
-%left '+' '-' '*' '/' '<' '>' tok_LE tok_GE tok_EQ tok_NEQ tok_AddOne tok_SubOne
+%left '+' '-' '*' '/' '<' '>' tok_LE tok_GE tok_EQ tok_NEQ tok_AddOne tok_SubOne tok_And tok_Or
 
-%type <ast_node> statement assignment if_stmt for_stmt while_stmt repeat_stmt statement_block
+%type <ast_node> statement  assignment if_stmt for_stmt while_stmt repeat_stmt statement_block
 %type <ast_node> function_stmt procedure_stmt func_call_stmt return_stmt
 %type <ast_node> term expression comparison printd prints declaration
 %type <type_node> type
-%type <stmt_list> statements argument_list
+%type <stmt_list> statements statement_line argument_list 
 %type <param_list> parameter_list
 
 %start root
@@ -92,75 +93,68 @@ root:
         }
         fprintf(stderr, "Module verification passed\n");
     }
-    | statements tok_Newline {
-        fprintf(stderr, "Processing %zu statements\n", $1->size());
-        for (ASTNode* node : *$1) {
-            fprintf(stderr, "Codegen for node type: %s\n", typeid(*node).name());
-            node->codegen();
-            delete node;
-        }
-        delete $1;
-        addReturnInstr();
-        fprintf(stderr, "Added return instruction\n");
-
-        if (verifyModule(*module, &errs())) {
-            fprintf(stderr, "Module verification failed!\n");
-            exit(EXIT_FAILURE);
-        }
-        fprintf(stderr, "Module verification passed\n");
-    }
-    | statements statement {
-        fprintf(stderr, "Processing %zu statements\n", $1->size());
-        for (ASTNode* node : *$1) {
-            fprintf(stderr, "Codegen for node type: %s\n", typeid(*node).name());
-            node->codegen();
-            delete node;
-        }
-        if ($2) {
-            fprintf(stderr, "Codegen for node type: %s\n", typeid(*$2).name());
-            $2->codegen();
-            delete $2;
-        }
-        delete $1;
-        addReturnInstr();
-        fprintf(stderr, "Added return instruction\n");
-
-        if (verifyModule(*module, &errs())) {
-            fprintf(stderr, "Module verification failed!\n");
-            exit(EXIT_FAILURE);
-        }
-        fprintf(stderr, "Module verification passed\n");
-    }
+    
 ;
 
 statements:
-      statement tok_Newline { $$ = new std::vector<ASTNode*>(); if ($1) $$->push_back($1); }
-    | statements statement tok_Newline { $$ = $1; if ($2) $$->push_back($2); }
-    | statements tok_Newline { $$ = $1; }
-    | statement { $$ = new std::vector<ASTNode*>(); if ($1) $$->push_back($1); }
+    statement_line { 
+        fprintf(stderr, "DEBUG: Creating new statements list with single statement_line\n"); 
+        $$ = $1; 
+    }
+    | statements statement_line {
+        fprintf(stderr, "DEBUG: Appending statement_line to existing statements list\n");
+        fprintf(stderr, "DEBUG: Current statements size: %zu\n", $1->size());
+        $$ = $1;
+        $$->insert($$->end(), $2->begin(), $2->end());
+        fprintf(stderr, "DEBUG: New statements size after append: %zu\n", $$->size());
+        delete $2;
+    }
+;
+
+statement_line:
+    statement tok_Newline {
+        fprintf(stderr, "DEBUG: Creating statement_line with statement type: %s\n", typeid(*$1).name());
+        fprintf(stderr, "DEBUG: Statement at line %d\n", yylineno);
+        $$ = new std::vector<ASTNode*>();
+        if ($1) {
+            fprintf(stderr, "DEBUG: Valid statement found, adding to vector\n");
+            $$->push_back($1);
+        } else {
+            fprintf(stderr, "DEBUG: Null statement encountered\n");
+        }
+    }
+    | statement {
+        fprintf(stderr, "DEBUG: Creating statement_line without newline\n");
+        $$ = new std::vector<ASTNode*>();
+        if ($1) {
+            fprintf(stderr, "DEBUG: Valid statement found, adding to vector\n");
+            $$->push_back($1);
+        }
+    }
 ;
 
 statement:
-      assignment { $$ = $1; }
-    | expression ';' { $$ = $1; }
-    | printd { $$ = $1; }
-    | prints { $$ = $1; }
-    | if_stmt { $$ = $1; }
-    | for_stmt { $$ = $1; }
-    | while_stmt { $$ = $1; }
-    | repeat_stmt { $$ = $1; }
-    | procedure_stmt { $$ = $1; }
-    | function_stmt { $$ = $1; }
-    | func_call_stmt { $$ = $1; }
-    | declaration { $$ = $1; }
+      assignment { fprintf(stderr, "DEBUG: Processing assignment statement\n"); $$ = $1; }
+    | expression { fprintf(stderr, "DEBUG: Processing expression statement\n"); $$ = $1; }
+    | printd { fprintf(stderr, "DEBUG: Processing printd statement\n"); $$ = $1; }
+    | prints { fprintf(stderr, "DEBUG: Processing prints statement\n"); $$ = $1; }
+    | if_stmt { fprintf(stderr, "DEBUG: Processing if statement\n"); $$ = $1; }
+    | for_stmt { fprintf(stderr, "DEBUG: Processing for statement\n"); $$ = $1; }
+    | while_stmt { fprintf(stderr, "DEBUG: Processing while statement\n"); $$ = $1; }
+    | repeat_stmt { fprintf(stderr, "DEBUG: Processing repeat statement\n"); $$ = $1; }
+    | procedure_stmt { fprintf(stderr, "DEBUG: Processing procedure statement\n"); $$ = $1; }
+    | function_stmt { fprintf(stderr, "DEBUG: Processing function statement\n"); $$ = $1; }
+    | func_call_stmt { fprintf(stderr, "DEBUG: Processing function call statement\n"); $$ = $1; }
+    | declaration { fprintf(stderr, "DEBUG: Processing declaration statement\n"); $$ = $1; }
+    | return_stmt { fprintf(stderr, "DEBUG: Processing return statement\n"); $$=$1; }
 ;
 
 prints:
-    tok_Prints '(' tok_String_Literal ')' ';' { $$ = new PrintStrAST(std::string($3)); }
+    tok_Prints '(' tok_String_Literal ')' { $$ = new PrintStrAST(std::string($3)); }
 ;
 
 printd:
-    tok_Printd '(' term ')' ';' { $$ = new PrintDoubleAST($3); }
+    tok_Printd '(' term ')'  { $$ = new PrintDoubleAST($3); }
 ;
 
 type:
@@ -220,26 +214,35 @@ comparison:
     | expression tok_NEQ expression { $$ = new ComparisonAST(6, $1, $3); }
 ;
 
-statement_block : tok_Newline tok_Indent statements tok_Dedent { $$ = new StatementBlockAST(*$3); }
-
-if_stmt:
-      tok_If comparison statement_block tok_End_If 
-        {
-            $$ = new IfAST($2, dynamic_cast<StatementBlockAST*>($3)->statements, {});
+statement_block: 
+    tok_Newline tok_Indent statements tok_Dedent { 
+        fprintf(stderr, "DEBUG: Creating statement block with dedent\n"); 
+        if ($3 == nullptr) {
+            fprintf(stderr, "DEBUG: Warning - null statements in block\n");
+            $$ = new StatementBlockAST(std::vector<ASTNode*>());
+        } else {
+            fprintf(stderr, "DEBUG: Block contains %zu statements\n", $3->size());
+            $$ = new StatementBlockAST(*$3); 
         }
-    | tok_If comparison statement_block tok_Else statement_block tok_End_If 
-        {
-            $$ = new IfAST($2, dynamic_cast<StatementBlockAST*>($3)->statements, dynamic_cast<StatementBlockAST*>($5)->statements);
-        }
-    | tok_If comparison statement_block tok_Else if_stmt tok_End_If 
-        {
-            std::vector<ASTNode*> else_block;
-            else_block.push_back($5); // nested if_stmt
-            $$ = new IfAST($2, dynamic_cast<StatementBlockAST*>($3)->statements, else_block);
-        }
+        delete $3;
+    }
 ;
 
-
+if_stmt:
+    tok_If comparison statement_block tok_End_If 
+        {
+            auto block = dynamic_cast<StatementBlockAST*>($3);
+            fprintf(stderr, "DEBUG: Processing simple if statement\n");
+            $$ = new IfAST($2, block->statements, {});
+        }
+    | tok_If comparison statement_block tok_Else statement_block tok_Dedent tok_End_If 
+        {
+            auto thenBlock = dynamic_cast<StatementBlockAST*>($3);
+            auto elseBlock = dynamic_cast<StatementBlockAST*>($5);
+            fprintf(stderr, "DEBUG: Processing if-else statement\n");
+            $$ = new IfAST($2, thenBlock->statements, elseBlock->statements);
+        }
+;
 
 for_stmt:
     tok_For assignment tok_To expression tok_Step expression statement_block tok_Next tok_Identifier {
@@ -249,7 +252,16 @@ for_stmt:
         }
         $$ = new ForAST($2, $4, $6, dynamic_cast<StatementBlockAST*>($7)->statements);
         free($9);
+    }
+    | tok_For assignment tok_To expression statement_block tok_Next tok_Identifier {
+        if (strcmp($7, ((AssignmentAST*)$2)->identifier.c_str()) != 0) {
+            yyerror("Loop variable mismatch");
+            YYERROR;
+        }
+        $$ = new ForAST($2, $4, new NumberAST(1), dynamic_cast<StatementBlockAST*>($5)->statements);
+        free($7);
     };
+;
 
 while_stmt:
       tok_While comparison statement_block tok_End_While {

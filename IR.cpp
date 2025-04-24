@@ -1,18 +1,21 @@
 #include "IR.h"
 
-extern char* yytext;
+extern char *yytext;
 extern int yylineno;
 
 // Global symbol table instance
-SymbolTable* globalSymbolTable = nullptr;
+SymbolTable *globalSymbolTable = nullptr;
 
-void initSymbolTable(CodegenContext& ctx) {
-    if (!globalSymbolTable) {
+void initSymbolTable(CodegenContext &ctx)
+{
+    if (!globalSymbolTable)
+    {
         globalSymbolTable = new SymbolTable(ctx);
     }
 }
 
-SymbolTable* getSymbolTable() {
+SymbolTable *getSymbolTable()
+{
     return globalSymbolTable;
 }
 
@@ -30,7 +33,7 @@ void initLLVM()
     mainFunction = Function::Create(mainTy, Function::ExternalLinkage, "main", module);
     BasicBlock *entry = BasicBlock::Create(context, "entry", mainFunction);
     builder.SetInsertPoint(entry);
-    
+
     // Initialize symbol table with the current context
     CodegenContext ctx(context, module, builder, mainFunction);
     initSymbolTable(ctx);
@@ -39,7 +42,8 @@ void initLLVM()
 void addReturnInstr()
 {
     fprintf(stderr, "Adding return instruction\n");
-    if (!builder.GetInsertBlock()) {
+    if (!builder.GetInsertBlock())
+    {
         fprintf(stderr, "Error: No insertion point set for return instruction\n");
         return;
     }
@@ -55,35 +59,47 @@ Value *createDoubleConstant(double val)
 void printLLVMIR()
 {
     fprintf(stderr, "Printing LLVM IR\n");
-    if (module == nullptr) {
+    if (module == nullptr)
+    {
         fprintf(stderr, "Error: Module is null\n");
         return;
     }
-    
+
     // Check if the module has any functions
-    if (module->empty()) {
+    if (module->empty())
+    {
         fprintf(stderr, "Warning: Module has no functions\n");
-    } else {
+    }
+    else
+    {
         fprintf(stderr, "Module has %zu functions\n", module->size());
     }
-    
+
     // Check if the main function has any basic blocks
-    if (mainFunction == nullptr) {
+    if (mainFunction == nullptr)
+    {
         fprintf(stderr, "Error: Main function is null\n");
-    } else if (mainFunction->empty()) {
+    }
+    else if (mainFunction->empty())
+    {
         fprintf(stderr, "Warning: Main function has no basic blocks\n");
-    } else {
+    }
+    else
+    {
         fprintf(stderr, "Main function has %zu basic blocks\n", mainFunction->size());
-        
+
         // Check if the entry block has any instructions
         BasicBlock *entry = &mainFunction->getEntryBlock();
-        if (entry->empty()) {
+        if (entry->empty())
+        {
             fprintf(stderr, "Warning: Entry block has no instructions\n");
-        } else {
+        }
+        else
+        {
             fprintf(stderr, "Entry block has %zu instructions\n", entry->size());
         }
     }
-    
+
     // Print the module to stdout for the output file
     // Use a single print to avoid duplicates
     module->print(outs(), nullptr);
@@ -175,13 +191,20 @@ Value *performComparison(Value *lhs, Value *rhs, int op)
 
 void yyerror(const char *s)
 {
-    fprintf(stderr, "Parse error at line %d: %s\n", yylineno, s);
-    // Print the current token and context
+    fprintf(stderr, "\nParse error at line %d: %s\n", yylineno, s);
     fprintf(stderr, "Current token: %s\n", yytext);
-    // Print the current line from the input file
-    fprintf(stderr, "Current line: ");
-    for (int i = 0; i < strlen(yytext); i++) {
+    fprintf(stderr, "Current line context: ");
+
+    // Print context around the error
+    for (int i = 0; i < strlen(yytext); i++)
+    {
         fprintf(stderr, "%c", yytext[i]);
     }
     fprintf(stderr, "\n");
+
+    // Print indentation state
+    fprintf(stderr, "Current indentation level: %d\n", current_indent);
+    fprintf(stderr, "Indentation stack size: %zu\n", indent_stack.size());
+    fprintf(stderr, "Start of line: %s\n", start_of_line ? "true" : "false");
+    fprintf(stderr, "Dedent buffer size: %zu\n\n", dedent_buffer.size());
 }

@@ -4,6 +4,14 @@
 #include "common_includes.h" // Centralized includes
 #include "Symbol_Table.h"
 #include "CodegenContext.h"
+#include <stack>
+#include <queue>
+
+// External declarations for indentation tracking
+extern std::stack<int> indent_stack;
+extern std::queue<int> dedent_buffer;
+extern int current_indent;
+extern bool start_of_line;
 
 extern SymbolTable* globalSymbolTable;
 void initSymbolTable(CodegenContext& ctx);

@@ -99,8 +99,10 @@ public:
     AssignmentAST(const std::string &id, ASTNode *expr)
         : identifier(id), expression(expr) {}
 
-    void analyze(SymbolTable &symtab) override {
-        if (expression) expression->analyze(symtab);
+    void analyze(SymbolTable &symtab) override
+    {
+        if (expression)
+            expression->analyze(symtab);
     }
     Value *codegen() override;
 };
@@ -115,9 +117,12 @@ public:
     BinaryOpAST(ASTNode *pexp1, ASTNode *pexpr2, int operation)
         : expression1(pexp1), expression2(pexpr2), op(operation) {}
 
-    void analyze(SymbolTable &symtab) override {
-        if (expression1) expression1->analyze(symtab);
-        if (expression2) expression2->analyze(symtab);
+    void analyze(SymbolTable &symtab) override
+    {
+        if (expression1)
+            expression1->analyze(symtab);
+        if (expression2)
+            expression2->analyze(symtab);
     }
     Value *codegen() override;
     Value *codegen_add_one();
@@ -132,8 +137,10 @@ public:
     UnaryOpAST(char opr, ASTNode *operandNode)
         : op(opr), operand(operandNode) {}
 
-    void analyze(SymbolTable &symtab) override {
-        if (operand) operand->analyze(symtab);
+    void analyze(SymbolTable &symtab) override
+    {
+        if (operand)
+            operand->analyze(symtab);
     }
     Value *codegen() override;
 };
@@ -154,8 +161,10 @@ public:
     ASTNode *expression;
 
     PrintDoubleAST(ASTNode *expr) : expression(expr) {}
-    void analyze(SymbolTable &symtab) override {
-        if (expression) expression->analyze(symtab);
+    void analyze(SymbolTable &symtab) override
+    {
+        if (expression)
+            expression->analyze(symtab);
     }
     Value *codegen() override;
 };
@@ -170,9 +179,12 @@ public:
     ComparisonAST(int op, ASTNode *lhs, ASTNode *rhs)
         : cmpOp(op), LHS(lhs), RHS(rhs) {}
 
-    void analyze(SymbolTable &symtab) override {
-        if (LHS) LHS->analyze(symtab);
-        if (RHS) RHS->analyze(symtab);
+    void analyze(SymbolTable &symtab) override
+    {
+        if (LHS)
+            LHS->analyze(symtab);
+        if (RHS)
+            RHS->analyze(symtab);
     }
     Value *codegen() override;
     Value *codegen_single();
@@ -188,13 +200,19 @@ public:
     IfAST(ASTNode *cond, const std::vector<ASTNode *> &thenBlk, const std::vector<ASTNode *> &elseBlk)
         : condition(cond), thenBlock(thenBlk), elseBlock(elseBlk) {}
 
-    void analyze(SymbolTable &symtab) override {
-        if (condition) condition->analyze(symtab);
-        for (auto *stmt : thenBlock) {
-            if (stmt) stmt->analyze(symtab);
+    void analyze(SymbolTable &symtab) override
+    {
+        if (condition)
+            condition->analyze(symtab);
+        for (auto *stmt : thenBlock)
+        {
+            if (stmt)
+                stmt->analyze(symtab);
         }
-        for (auto *stmt : elseBlock) {
-            if (stmt) stmt->analyze(symtab);
+        for (auto *stmt : elseBlock)
+        {
+            if (stmt)
+                stmt->analyze(symtab);
         }
     }
     Value *codegen() override;
@@ -211,12 +229,18 @@ public:
     ForAST(ASTNode *assign, ASTNode *cond, ASTNode *exp, const std::vector<ASTNode *> &forBlk)
         : assignment(assign), condition(cond), expression(exp), forBlock(forBlk) {}
 
-    void analyze(SymbolTable &symtab) override {
-        if (assignment) assignment->analyze(symtab);
-        if (condition) condition->analyze(symtab);
-        if (expression) expression->analyze(symtab);
-        for (auto *stmt : forBlock) {
-            if (stmt) stmt->analyze(symtab);
+    void analyze(SymbolTable &symtab) override
+    {
+        if (assignment)
+            assignment->analyze(symtab);
+        if (condition)
+            condition->analyze(symtab);
+        if (expression)
+            expression->analyze(symtab);
+        for (auto *stmt : forBlock)
+        {
+            if (stmt)
+                stmt->analyze(symtab);
         }
     }
     Value *codegen() override;
@@ -231,10 +255,14 @@ public:
     WhileAST(ASTNode *cond, const std::vector<ASTNode *> &bodyStatements)
         : condition(cond), body(bodyStatements) {}
 
-    void analyze(SymbolTable &symtab) override {
-        if (condition) condition->analyze(symtab);
-        for (auto *stmt : body) {
-            if (stmt) stmt->analyze(symtab);
+    void analyze(SymbolTable &symtab) override
+    {
+        if (condition)
+            condition->analyze(symtab);
+        for (auto *stmt : body)
+        {
+            if (stmt)
+                stmt->analyze(symtab);
         }
     }
     Value *codegen() override;
@@ -249,10 +277,14 @@ public:
     RepeatAST(ASTNode *cond, const std::vector<ASTNode *> &bodyStatements)
         : condition(cond), body(bodyStatements) {}
 
-    void analyze(SymbolTable &symtab) override {
-        if (condition) condition->analyze(symtab);
-        for (auto *stmt : body) {
-            if (stmt) stmt->analyze(symtab);
+    void analyze(SymbolTable &symtab) override
+    {
+        if (condition)
+            condition->analyze(symtab);
+        for (auto *stmt : body)
+        {
+            if (stmt)
+                stmt->analyze(symtab);
         }
     }
     Value *codegen() override;
@@ -269,9 +301,12 @@ public:
                  const std::vector<ASTNode *> &stmtBlock)
         : name(procName), parameters(params), statementsBlock(stmtBlock) {}
 
-    void analyze(SymbolTable &symtab) override {
-        for (auto *stmt : statementsBlock) {
-            if (stmt) stmt->analyze(symtab);
+    void analyze(SymbolTable &symtab) override
+    {
+        for (auto *stmt : statementsBlock)
+        {
+            if (stmt)
+                stmt->analyze(symtab);
         }
     }
     Value *codegen() override;
@@ -288,9 +323,12 @@ public:
     FuncAST(const std::string &n, const std::vector<std::string> &params, const std::vector<ASTNode *> &block, TypeAST *retType)
         : name(n), parameters(params), statementsBlock(block), returnType(retType) {}
 
-    void analyze(SymbolTable &symtab) override {
-        for (auto *stmt : statementsBlock) {
-            if (stmt) stmt->analyze(symtab);
+    void analyze(SymbolTable &symtab) override
+    {
+        for (auto *stmt : statementsBlock)
+        {
+            if (stmt)
+                stmt->analyze(symtab);
         }
     }
     Value *codegen() override;
@@ -305,9 +343,12 @@ public:
     FuncCallAST(const std::string &funcName, const std::vector<ASTNode *> &args)
         : name(funcName), arguments(args) {}
 
-    void analyze(SymbolTable &symtab) override {
-        for (auto *arg : arguments) {
-            if (arg) arg->analyze(symtab);
+    void analyze(SymbolTable &symtab) override
+    {
+        for (auto *arg : arguments)
+        {
+            if (arg)
+                arg->analyze(symtab);
         }
     }
     Value *codegen() override;
@@ -320,8 +361,10 @@ public:
 
     ReturnAST(ASTNode *expr) : expression(expr) {}
 
-    void analyze(SymbolTable &symtab) override {
-        if (expression) expression->analyze(symtab);
+    void analyze(SymbolTable &symtab) override
+    {
+        if (expression)
+            expression->analyze(symtab);
     }
     Value *codegen() override;
 };
@@ -336,8 +379,10 @@ public:
     DeclarationAST(const std::string &id, TypeAST *t)
         : identifier(id), type(t) {}
 
-    void analyze(SymbolTable &symtab) override {
-        if (type) type->analyze(symtab);
+    void analyze(SymbolTable &symtab) override
+    {
+        if (type)
+            type->analyze(symtab);
     }
     Value *codegen() override;
 };
@@ -363,9 +408,12 @@ public:
     LogicalOpAST(const std::string &operation, ASTNode *left, ASTNode *right)
         : op(operation), lhs(left), rhs(right) {}
 
-    void analyze(SymbolTable &symtab) override {
-        if (lhs) lhs->analyze(symtab);
-        if (rhs) rhs->analyze(symtab);
+    void analyze(SymbolTable &symtab) override
+    {
+        if (lhs)
+            lhs->analyze(symtab);
+        if (rhs)
+            rhs->analyze(symtab);
     }
     Value *codegen() override;
 };
@@ -373,13 +421,16 @@ public:
 class StatementBlockAST : public ASTNode
 {
 public:
-    std::vector<ASTNode*> statements;
+    std::vector<ASTNode *> statements;
 
-    StatementBlockAST(const std::vector<ASTNode*>& stmts) : statements(stmts) {}
+    StatementBlockAST(const std::vector<ASTNode *> &stmts) : statements(stmts) {}
 
-    void analyze(SymbolTable &symtab) override {
-        for (auto* stmt : statements) {
-            if (stmt) stmt->analyze(symtab);
+    void analyze(SymbolTable &symtab) override
+    {
+        for (auto *stmt : statements)
+        {
+            if (stmt)
+                stmt->analyze(symtab);
         }
     }
     Value *codegen() override;
