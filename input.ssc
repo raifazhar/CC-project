@@ -1,3 +1,2 @@
-FOR Index = 1 TO 30
-   printd(Index)
-NEXT Index
+DECLARE x : INTEGER
+x="h"

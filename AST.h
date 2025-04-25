@@ -4,25 +4,84 @@
 #include "IR.h"
 #include <string>
 #include <vector>
+#include <unordered_map>
+#include <functional>
 #include "Symbol_Table.h"
 using namespace llvm;
+
+// Definition of expression types
+enum class ExprType
+{
+    Number,
+    Binary,
+    Unary,
+    FuncCall,
+    Integer,
+    Real,
+    Identifier,
+    String,
+    Char,
+    Date,
+    Boolean
+};
 
 class ASTNode
 {
 public:
+    enum NodeType
+    {
+        NK_Type,
+        NK_CharLiteral,
+        NK_StringLiteral,
+        NK_IntegerLiteral,
+        NK_RealLiteral,
+        NK_DateLiteral,
+        NK_Identifier,
+        NK_Assignment,
+        NK_BinaryOp,
+        NK_UnaryOp,
+        NK_PrintStr,
+        NK_PrintRealLiteral,
+        NK_Comparison,
+        NK_If,
+        NK_For,
+        NK_While,
+        NK_Repeat,
+        NK_Procedure,
+        NK_Function,
+        NK_FuncCall,
+        NK_Return,
+        NK_Declaration,
+        NK_LogicalOp,
+        NK_StatementBlock,
+        NK_BooleanLiteral
+    };
+
+    NodeType nodeType;
     virtual ~ASTNode() = default; // Virtual destructor
     virtual void analyze(SymbolTable &symtab) = 0;
     virtual llvm::Value *codegen() = 0;
+
+protected:
+    ASTNode(NodeType type) : nodeType(type) {}
 };
 
 class TypeAST : public ASTNode
 {
 public:
     std::string type;
+    using TypeGenerator = std::function<llvm::Type *(llvm::LLVMContext &)>;
 
-    TypeAST(const std::string &t) : type(t) {}
-    void analyze(SymbolTable &symtab) override {} // Empty implementation
+    static const std::unordered_map<std::string, TypeAST::TypeGenerator> typeMap;
+
+    TypeAST(const std::string &t) : ASTNode(NK_Type), type(t) {}
+    void analyze(SymbolTable &symtab) override {}
     Value *codegen() override;
+
+    static bool classof(const ASTNode *node)
+    {
+        return node->nodeType == NK_Type;
+    }
 };
 
 class CharLiteralAST : public ASTNode
@@ -30,10 +89,15 @@ class CharLiteralAST : public ASTNode
 public:
     char value;
 
-    CharLiteralAST(char val) : value(val) {}
+    CharLiteralAST(char val) : ASTNode(NK_CharLiteral), value(val) {}
 
     void analyze(SymbolTable &symtab) override {} // Empty implementation
     Value *codegen() override;
+
+    static bool classof(const ASTNode *node)
+    {
+        return node->nodeType == NK_CharLiteral;
+    }
 };
 
 class StringLiteralAST : public ASTNode
@@ -41,10 +105,15 @@ class StringLiteralAST : public ASTNode
 public:
     std::string value;
 
-    StringLiteralAST(const std::string &val) : value(val) {}
+    StringLiteralAST(const std::string &val) : ASTNode(NK_StringLiteral), value(val) {}
 
     void analyze(SymbolTable &symtab) override {} // Empty implementation
     Value *codegen() override;
+
+    static bool classof(const ASTNode *node)
+    {
+        return node->nodeType == NK_StringLiteral;
+    }
 };
 
 class IntegerLiteralAST : public ASTNode
@@ -52,10 +121,15 @@ class IntegerLiteralAST : public ASTNode
 public:
     int value;
 
-    IntegerLiteralAST(int val) : value(val) {}
+    IntegerLiteralAST(int val) : ASTNode(NK_IntegerLiteral), value(val) {}
 
     void analyze(SymbolTable &symtab) override {} // Empty implementation
     Value *codegen() override;
+
+    static bool classof(const ASTNode *node)
+    {
+        return node->nodeType == NK_IntegerLiteral;
+    }
 };
 
 class RealLiteralAST : public ASTNode
@@ -63,10 +137,15 @@ class RealLiteralAST : public ASTNode
 public:
     double value;
 
-    RealLiteralAST(double val) : value(val) {}
+    RealLiteralAST(double val) : ASTNode(NK_RealLiteral), value(val) {}
 
     void analyze(SymbolTable &symtab) override {} // Empty implementation
     Value *codegen() override;
+
+    static bool classof(const ASTNode *node)
+    {
+        return node->nodeType == NK_RealLiteral;
+    }
 };
 
 class DateLiteralAST : public ASTNode
@@ -74,10 +153,15 @@ class DateLiteralAST : public ASTNode
 public:
     std::string value;
 
-    DateLiteralAST(const std::string &val) : value(val) {}
+    DateLiteralAST(const std::string &val) : ASTNode(NK_DateLiteral), value(val) {}
 
     void analyze(SymbolTable &symtab) override {} // Empty implementation
     Value *codegen() override;
+
+    static bool classof(const ASTNode *node)
+    {
+        return node->nodeType == NK_DateLiteral;
+    }
 };
 
 class IdentifierAST : public ASTNode
@@ -85,9 +169,14 @@ class IdentifierAST : public ASTNode
 public:
     std::string name;
 
-    IdentifierAST(const std::string &name) : name(name) {}
+    IdentifierAST(const std::string &name) : ASTNode(NK_Identifier), name(name) {}
     void analyze(SymbolTable &symtab) override {} // Empty implementation
     Value *codegen() override;
+
+    static bool classof(const ASTNode *node)
+    {
+        return node->nodeType == NK_Identifier;
+    }
 };
 
 class AssignmentAST : public ASTNode
@@ -95,16 +184,23 @@ class AssignmentAST : public ASTNode
 public:
     std::string identifier;
     ASTNode *expression;
+    TypeAST *declaredType; // Type from declaration, null if not declared
 
-    AssignmentAST(const std::string &id, ASTNode *expr)
-        : identifier(id), expression(expr) {}
+    AssignmentAST(const std::string &id, ASTNode *expr, TypeAST *type = nullptr)
+        : ASTNode(NK_Assignment), identifier(id), expression(expr), declaredType(type) {}
 
     void analyze(SymbolTable &symtab) override
     {
         if (expression)
             expression->analyze(symtab);
     }
+
     Value *codegen() override;
+
+    static bool classof(const ASTNode *node)
+    {
+        return node->nodeType == NK_Assignment;
+    }
 };
 
 class BinaryOpAST : public ASTNode
@@ -115,7 +211,7 @@ public:
     ASTNode *expression2;
 
     BinaryOpAST(ASTNode *pexp1, ASTNode *pexpr2, int operation)
-        : expression1(pexp1), expression2(pexpr2), op(operation) {}
+        : ASTNode(NK_BinaryOp), expression1(pexp1), expression2(pexpr2), op(operation) {}
 
     void analyze(SymbolTable &symtab) override
     {
@@ -126,6 +222,11 @@ public:
     }
     Value *codegen() override;
     Value *codegen_add_one();
+
+    static bool classof(const ASTNode *node)
+    {
+        return node->nodeType == NK_BinaryOp;
+    }
 };
 
 class UnaryOpAST : public ASTNode
@@ -135,7 +236,7 @@ public:
     ASTNode *operand;
 
     UnaryOpAST(char opr, ASTNode *operandNode)
-        : op(opr), operand(operandNode) {}
+        : ASTNode(NK_UnaryOp), op(opr), operand(operandNode) {}
 
     void analyze(SymbolTable &symtab) override
     {
@@ -143,6 +244,11 @@ public:
             operand->analyze(symtab);
     }
     Value *codegen() override;
+
+    static bool classof(const ASTNode *node)
+    {
+        return node->nodeType == NK_UnaryOp;
+    }
 };
 
 class PrintStrAST : public ASTNode
@@ -150,23 +256,32 @@ class PrintStrAST : public ASTNode
 public:
     std::string str;
 
-    PrintStrAST(const std::string &s) : str(s) {}
+    PrintStrAST(const std::string &s) : ASTNode(NK_PrintStr), str(s) {}
     void analyze(SymbolTable &symtab) override {} // Empty implementation
     Value *codegen() override;
+
+    static bool classof(const ASTNode *node)
+    {
+        return node->nodeType == NK_PrintStr;
+    }
 };
 
-class PrintDoubleAST : public ASTNode
+class PrintRealLiteralAST : public ASTNode
 {
 public:
     ASTNode *expression;
-
-    PrintDoubleAST(ASTNode *expr) : expression(expr) {}
+    PrintRealLiteralAST(ASTNode *expr) : ASTNode(NK_PrintRealLiteral), expression(expr) {}
     void analyze(SymbolTable &symtab) override
     {
         if (expression)
             expression->analyze(symtab);
     }
     Value *codegen() override;
+
+    static bool classof(const ASTNode *node)
+    {
+        return node->nodeType == NK_PrintRealLiteral;
+    }
 };
 
 class ComparisonAST : public ASTNode
@@ -177,7 +292,7 @@ public:
     ASTNode *RHS;
 
     ComparisonAST(int op, ASTNode *lhs, ASTNode *rhs)
-        : cmpOp(op), LHS(lhs), RHS(rhs) {}
+        : ASTNode(NK_Comparison), cmpOp(op), LHS(lhs), RHS(rhs) {}
 
     void analyze(SymbolTable &symtab) override
     {
@@ -188,17 +303,22 @@ public:
     }
     Value *codegen() override;
     Value *codegen_single();
+
+    static bool classof(const ASTNode *node)
+    {
+        return node->nodeType == NK_Comparison;
+    }
 };
 
 class IfAST : public ASTNode
 {
 public:
-    ASTNode *condition;
+    ComparisonAST *condition; // Changed from ASTNode* to ComparisonAST*
     std::vector<ASTNode *> thenBlock;
     std::vector<ASTNode *> elseBlock;
 
-    IfAST(ASTNode *cond, const std::vector<ASTNode *> &thenBlk, const std::vector<ASTNode *> &elseBlk)
-        : condition(cond), thenBlock(thenBlk), elseBlock(elseBlk) {}
+    IfAST(ComparisonAST *cond, const std::vector<ASTNode *> &thenBlk, const std::vector<ASTNode *> &elseBlk)
+        : ASTNode(NK_If), condition(cond), thenBlock(thenBlk), elseBlock(elseBlk) {}
 
     void analyze(SymbolTable &symtab) override
     {
@@ -216,18 +336,23 @@ public:
         }
     }
     Value *codegen() override;
+
+    static bool classof(const ASTNode *node)
+    {
+        return node->nodeType == NK_If;
+    }
 };
 
 class ForAST : public ASTNode
 {
 public:
-    ASTNode *assignment;
-    ASTNode *condition;
-    ASTNode *expression;
+    AssignmentAST *assignment; // Changed from ASTNode* to AssignmentAST*
+    ComparisonAST *condition;  // Changed from ASTNode* to ComparisonAST*
+    BinaryOpAST *expression;   // Changed from ASTNode* to BinaryOpAST* (typically increment/decrement)
     std::vector<ASTNode *> forBlock;
 
-    ForAST(ASTNode *assign, ASTNode *cond, ASTNode *exp, const std::vector<ASTNode *> &forBlk)
-        : assignment(assign), condition(cond), expression(exp), forBlock(forBlk) {}
+    ForAST(AssignmentAST *assign, ComparisonAST *cond, BinaryOpAST *exp, const std::vector<ASTNode *> &forBlk)
+        : ASTNode(NK_For), assignment(assign), condition(cond), expression(exp), forBlock(forBlk) {}
 
     void analyze(SymbolTable &symtab) override
     {
@@ -244,16 +369,21 @@ public:
         }
     }
     Value *codegen() override;
+
+    static bool classof(const ASTNode *node)
+    {
+        return node->nodeType == NK_For;
+    }
 };
 
 class WhileAST : public ASTNode
 {
 public:
-    ASTNode *condition;
+    ComparisonAST *condition; // Changed from ASTNode* to ComparisonAST*
     std::vector<ASTNode *> body;
 
-    WhileAST(ASTNode *cond, const std::vector<ASTNode *> &bodyStatements)
-        : condition(cond), body(bodyStatements) {}
+    WhileAST(ComparisonAST *cond, const std::vector<ASTNode *> &bodyStatements)
+        : ASTNode(NK_While), condition(cond), body(bodyStatements) {}
 
     void analyze(SymbolTable &symtab) override
     {
@@ -266,16 +396,21 @@ public:
         }
     }
     Value *codegen() override;
+
+    static bool classof(const ASTNode *node)
+    {
+        return node->nodeType == NK_While;
+    }
 };
 
 class RepeatAST : public ASTNode
 {
 public:
-    ASTNode *condition;
+    ComparisonAST *condition; // Changed from ASTNode* to ComparisonAST*
     std::vector<ASTNode *> body;
 
-    RepeatAST(ASTNode *cond, const std::vector<ASTNode *> &bodyStatements)
-        : condition(cond), body(bodyStatements) {}
+    RepeatAST(ComparisonAST *cond, const std::vector<ASTNode *> &bodyStatements)
+        : ASTNode(NK_Repeat), condition(cond), body(bodyStatements) {}
 
     void analyze(SymbolTable &symtab) override
     {
@@ -288,6 +423,11 @@ public:
         }
     }
     Value *codegen() override;
+
+    static bool classof(const ASTNode *node)
+    {
+        return node->nodeType == NK_Repeat;
+    }
 };
 
 class ProcedureAST : public ASTNode
@@ -299,7 +439,7 @@ public:
 
     ProcedureAST(const std::string &procName, const std::vector<std::string> &params,
                  const std::vector<ASTNode *> &stmtBlock)
-        : name(procName), parameters(params), statementsBlock(stmtBlock) {}
+        : ASTNode(NK_Procedure), name(procName), parameters(params), statementsBlock(stmtBlock) {}
 
     void analyze(SymbolTable &symtab) override
     {
@@ -310,6 +450,11 @@ public:
         }
     }
     Value *codegen() override;
+
+    static bool classof(const ASTNode *node)
+    {
+        return node->nodeType == NK_Procedure;
+    }
 };
 
 class FuncAST : public ASTNode
@@ -321,7 +466,7 @@ public:
     TypeAST *returnType;
 
     FuncAST(const std::string &n, const std::vector<std::string> &params, const std::vector<ASTNode *> &block, TypeAST *retType)
-        : name(n), parameters(params), statementsBlock(block), returnType(retType) {}
+        : ASTNode(NK_Function), name(n), parameters(params), statementsBlock(block), returnType(retType) {}
 
     void analyze(SymbolTable &symtab) override
     {
@@ -332,6 +477,11 @@ public:
         }
     }
     Value *codegen() override;
+
+    static bool classof(const ASTNode *node)
+    {
+        return node->nodeType == NK_Function;
+    }
 };
 
 class FuncCallAST : public ASTNode
@@ -341,7 +491,7 @@ public:
     std::vector<ASTNode *> arguments;
 
     FuncCallAST(const std::string &funcName, const std::vector<ASTNode *> &args)
-        : name(funcName), arguments(args) {}
+        : ASTNode(NK_FuncCall), name(funcName), arguments(args) {}
 
     void analyze(SymbolTable &symtab) override
     {
@@ -352,6 +502,11 @@ public:
         }
     }
     Value *codegen() override;
+
+    static bool classof(const ASTNode *node)
+    {
+        return node->nodeType == NK_FuncCall;
+    }
 };
 
 class ReturnAST : public ASTNode
@@ -359,7 +514,7 @@ class ReturnAST : public ASTNode
 public:
     ASTNode *expression;
 
-    ReturnAST(ASTNode *expr) : expression(expr) {}
+    ReturnAST(ASTNode *expr) : ASTNode(NK_Return), expression(expr) {}
 
     void analyze(SymbolTable &symtab) override
     {
@@ -367,6 +522,11 @@ public:
             expression->analyze(symtab);
     }
     Value *codegen() override;
+
+    static bool classof(const ASTNode *node)
+    {
+        return node->nodeType == NK_Return;
+    }
 };
 
 // Add missing classes
@@ -377,7 +537,7 @@ public:
     TypeAST *type;
 
     DeclarationAST(const std::string &id, TypeAST *t)
-        : identifier(id), type(t) {}
+        : ASTNode(NK_Declaration), identifier(id), type(t) {}
 
     void analyze(SymbolTable &symtab) override
     {
@@ -385,17 +545,13 @@ public:
             type->analyze(symtab);
     }
     Value *codegen() override;
-};
 
-class NumberAST : public ASTNode
-{
-public:
-    double value;
-
-    NumberAST(double val) : value(val) {}
-
-    void analyze(SymbolTable &symtab) override {} // Empty implementation
-    Value *codegen() override;
+    static bool classof(const ASTNode *node)
+    {
+        // Check if the node is of type DeclarationAST
+        llvm::errs() << "Checking class of AST\n";
+        return node->nodeType == NK_Declaration;
+    }
 };
 
 class LogicalOpAST : public ASTNode
@@ -406,7 +562,7 @@ public:
     ASTNode *rhs;
 
     LogicalOpAST(const std::string &operation, ASTNode *left, ASTNode *right)
-        : op(operation), lhs(left), rhs(right) {}
+        : ASTNode(NK_LogicalOp), op(operation), lhs(left), rhs(right) {}
 
     void analyze(SymbolTable &symtab) override
     {
@@ -416,6 +572,11 @@ public:
             rhs->analyze(symtab);
     }
     Value *codegen() override;
+
+    static bool classof(const ASTNode *node)
+    {
+        return node->nodeType == NK_LogicalOp;
+    }
 };
 
 class StatementBlockAST : public ASTNode
@@ -423,7 +584,7 @@ class StatementBlockAST : public ASTNode
 public:
     std::vector<ASTNode *> statements;
 
-    StatementBlockAST(const std::vector<ASTNode *> &stmts) : statements(stmts) {}
+    StatementBlockAST(const std::vector<ASTNode *> &stmts) : ASTNode(NK_StatementBlock), statements(stmts) {}
 
     void analyze(SymbolTable &symtab) override
     {
@@ -434,6 +595,11 @@ public:
         }
     }
     Value *codegen() override;
+
+    static bool classof(const ASTNode *node)
+    {
+        return node->nodeType == NK_StatementBlock;
+    }
 };
 
 class BooleanLiteralAST : public ASTNode
@@ -441,10 +607,15 @@ class BooleanLiteralAST : public ASTNode
 public:
     bool value;
 
-    BooleanLiteralAST(bool val) : value(val) {}
+    BooleanLiteralAST(bool val) : ASTNode(NK_BooleanLiteral), value(val) {}
 
     void analyze(SymbolTable &symtab) override {} // Empty implementation
     Value *codegen() override;
+
+    static bool classof(const ASTNode *node)
+    {
+        return node->nodeType == NK_BooleanLiteral;
+    }
 };
 
 #endif // AST_H

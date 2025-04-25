@@ -2,11 +2,13 @@
 #include "IR.h"
 #include <llvm/Support/raw_ostream.h>
 #include <fstream>
+#include <unordered_map>
+#include <iostream> // Add this for complete std::ofstream definition
 
 #define DEBUG_PRINT_FUNCTION()                                                               \
     do                                                                                       \
     {                                                                                        \
-        const char *filename = "debug_output.txt";                                           \
+        const char *filename = "build/debug/llvm_debug.output.txt";                          \
         std::ofstream debug_file(filename, std::ios::app);                                   \
         if (debug_file.is_open())                                                            \
         {                                                                                    \
@@ -27,39 +29,38 @@
         }                                                                                    \
     } while (0)
 
+const std::unordered_map<std::string, TypeAST::TypeGenerator> TypeAST::typeMap = {
+    {"INTEGER", [](llvm::LLVMContext &ctx)
+     {
+         return llvm::Type::getInt32Ty(ctx);
+     }},
+    {"REAL", [](llvm::LLVMContext &ctx)
+     {
+         return llvm::Type::getDoubleTy(ctx);
+     }},
+    {"STRING", [](llvm::LLVMContext &ctx)
+     {
+         return llvm::PointerType::getUnqual(llvm::Type::getInt8Ty(ctx));
+     }},
+    {"CHAR", [](llvm::LLVMContext &ctx)
+     {
+         return llvm::Type::getInt8Ty(ctx);
+     }},
+    {"BOOLEAN", [](llvm::LLVMContext &ctx)
+     {
+         return llvm::Type::getInt1Ty(ctx);
+     }},
+    {"DATE", [](llvm::LLVMContext &ctx)
+     {
+         return llvm::PointerType::getUnqual(llvm::Type::getInt8Ty(ctx)); // or however you represent it
+     }},
+};
+
 Value *TypeAST::codegen()
 {
     DEBUG_PRINT_FUNCTION();
-    // Create a constant value of the appropriate type
-    if (type == "int" || type == "INTEGER")
-    {
-        return ConstantInt::get(Type::getInt32Ty(context), 0);
-    }
-    else if (type == "real" || type == "REAL")
-    {
-        return ConstantFP::get(Type::getDoubleTy(context), 0.0);
-    }
-    else if (type == "boolean" || type == "BOOLEAN")
-    {
-        return ConstantInt::get(Type::getInt1Ty(context), 0);
-    }
-    else if (type == "char" || type == "CHAR")
-    {
-        return ConstantInt::get(Type::getInt8Ty(context), 0);
-    }
-    else if (type == "string" || type == "STRING")
-    {
-        return ConstantPointerNull::get(PointerType::get(Type::getInt8Ty(context), 0));
-    }
-    else if (type == "date" || type == "DATE")
-    {
-        return ConstantPointerNull::get(PointerType::get(Type::getInt8Ty(context), 0));
-    }
-    else
-    {
-        errs() << "Unknown type: " << type << "\n";
-        return nullptr;
-    }
+
+    return nullptr;
 }
 
 Value *CharLiteralAST::codegen()
@@ -152,26 +153,66 @@ Value *IdentifierAST::codegen()
 Value *AssignmentAST::codegen()
 {
     DEBUG_PRINT_FUNCTION();
-    Value *exprVal = expression->codegen();
-    Value *ptr = getFromSymbolTable(identifier);
-    setDouble(identifier, exprVal);
-    return exprVal;
+
+    // 1. Get the variable from the symbol table
+    Value *var = globalSymbolTable->lookupSymbol(identifier);
+    if (!var)
+    {
+        llvm::errs() << "Unknown variable: " << identifier << "\n";
+        return nullptr;
+    }
+
+    // 2. Get the type of the variable from the symbol table
+    llvm::Type *varType = globalSymbolTable->getSymbolType(identifier);
+    if (!varType)
+    {
+        llvm::errs() << "Failed to get type for variable: " << identifier << "\n";
+        return nullptr;
+    }
+
+    // 3. Generate code for the value being assigned
+    Value *val = expression->codegen();
+    if (!val)
+    {
+        return nullptr;
+    }
+
+    // 4. Type check: Compare the type of the variable with the type of the value being assigned
+    llvm::Type *valType = val->getType();
+    llvm::errs() << "Variable type: " << *varType << " Value type: " << *valType << "\n";
+
+    // If the types don't match, report an error
+    if (varType->getTypeID() != valType->getTypeID())
+    {
+        llvm::outs() << "Type mismatch: Cannot assign " << *valType << " to " << *varType << "\n";
+        return nullptr;
+    }
+
+    // 5. Debug output to check types (optional, for debugging purposes)
+    llvm::errs() << "Variable type: " << *varType << "\n";
+    llvm::errs() << "Value type: " << *valType << "\n";
+
+    // 6. Store the value in the variable
+    builder.CreateStore(val, var);
+
+    return val;
 }
 
 Value *BinaryOpAST::codegen()
 {
     DEBUG_PRINT_FUNCTION();
-
+    errs() << "I am being called";
     // Handle ++ / -- (postfix): expression2 is null
     if (expression2 == nullptr && (op == '+' || op == '-'))
     {
-        IdentifierAST *var = dynamic_cast<IdentifierAST *>(expression1);
-        if (!var)
+        // Since we're handling postfix operations, expression1 must be an identifier
+        if (!isa<IdentifierAST>(expression1))
         {
             errs() << "Error: Increment/Decrement only valid on variables.\n";
             return nullptr;
         }
 
+        auto var = static_cast<IdentifierAST *>(expression1);
         Value *varPtr = getFromSymbolTable(var->name);
         if (!varPtr || !varPtr->getType()->isPointerTy())
         {
@@ -187,8 +228,7 @@ Value *BinaryOpAST::codegen()
 
         builder.CreateStore(newVal, varPtr);
 
-        // Return old value for post-inc semantics
-        return oldVal;
+        return oldVal; // Return old value for post-inc semantics
     }
 
     // Normal binary operation: i + 1, a * b, etc.
@@ -237,7 +277,7 @@ Value *PrintStrAST::codegen()
     return nullptr; // No value produced.
 }
 
-Value *PrintDoubleAST::codegen()
+Value *PrintRealLiteralAST::codegen()
 {
     DEBUG_PRINT_FUNCTION();
     Value *val = expression->codegen();
@@ -293,44 +333,66 @@ Value *IfAST::codegen()
 
 Value *ForAST::codegen()
 {
-    // Generate the assignment (initialization) code
+    DEBUG_PRINT_FUNCTION();
+
+    Function *function = builder.GetInsertBlock()->getParent();
+
+    // Create basic blocks
+    BasicBlock *condBB = BasicBlock::Create(context, "for.cond", function);
+    BasicBlock *loopBB = BasicBlock::Create(context, "for.body", function);
+    BasicBlock *afterBB = BasicBlock::Create(context, "for.end", function);
+
+    // Initialize loop variable
     if (assignment)
     {
         assignment->codegen();
     }
 
-    // Generate the condition code
-    Value *condVal = condition->codegen();
+    // Branch to condition block
+    builder.CreateBr(condBB);
 
-    // Create the basic blocks for the loop
-    Function *function = builder.GetInsertBlock()->getParent();
-    BasicBlock *loopBB = BasicBlock::Create(context, "loop", function);
-    BasicBlock *loopEndBB = BasicBlock::Create(context, "loop.end", function);
+    // Generate condition block
+    builder.SetInsertPoint(condBB);
+    AssignmentAST *assignmentNode = (AssignmentAST *)assignment;
+    Value *loopVar = getFromSymbolTable(assignmentNode->identifier);
+    Value *currentValue = builder.CreateLoad(Type::getDoubleTy(context), loopVar, "current");
+    Value *endValue = condition->codegen();
+    Value *condVal = builder.CreateFCmpOLE(currentValue, endValue, "loopcond");
+    builder.CreateCondBr(condVal, loopBB, afterBB);
 
-    // Create the condition check before entering the loop
-    builder.CreateCondBr(condVal, loopBB, loopEndBB);
-
-    // Start the loop body
+    // Generate loop body
     builder.SetInsertPoint(loopBB);
-
-    // Execute all statements inside the loop body
     for (auto *stmt : forBlock)
     {
         stmt->codegen();
     }
 
-    // Execute the expression after the loop body (this is typically the increment expression in for loops)
-    expression->codegen();
+    // Update loop variable using the step expression
+    currentValue = builder.CreateLoad(Type::getDoubleTy(context), loopVar, "current");
+    // Use the step expression from the AST
+    if (expression)
+    {
+        // Generate code for the step expression and add it to current value
+        Value *stepValue = expression->codegen();
+        Value *nextValue = builder.CreateFAdd(currentValue, stepValue, "next");
+        builder.CreateStore(nextValue, loopVar);
+    }
+    else
+    {
+        // Default increment by 1 if no step was provided
+        Value *one = ConstantFP::get(Type::getDoubleTy(context), 1.0);
+        Value *nextValue = builder.CreateFAdd(currentValue, one, "next");
+        builder.CreateStore(nextValue, loopVar);
+    }
 
-    // Check the condition again and either repeat the loop or end it
-    condVal = condition->codegen();                   // Re-evaluate the condition
-    builder.CreateCondBr(condVal, loopBB, loopEndBB); // Continue or exit based on condition
+    // Branch back to condition
+    builder.CreateBr(condBB);
 
-    // Set the insert point to the "loop.end" block after the loop terminates
-    builder.SetInsertPoint(loopEndBB);
-
-    return nullptr; // No value is returned
+    // Move to after block
+    builder.SetInsertPoint(afterBB);
+    return nullptr;
 }
+
 Value *WhileAST::codegen()
 {
     DEBUG_PRINT_FUNCTION();
@@ -484,55 +546,18 @@ Value *FuncCallAST::codegen()
 Value *DeclarationAST::codegen()
 {
     DEBUG_PRINT_FUNCTION();
-    errs() << "Generating code for declaration: " << identifier << " of type " << type->type << "\n";
+    llvm::errs() << "Generating code for declaration: " << identifier << " of type " << type->type << "\n";
 
-    // Create an alloca instruction for the variable
-    AllocaInst *alloca = builder.CreateAlloca(builder.getDoubleTy(), nullptr, identifier);
+    // Get the default value for this type (e.g., 0 for integer types)
+    CodegenContext ctx(context, module, builder, builder.GetInsertBlock()->getParent());
+    llvm::Type *varType = TypeAST::typeMap.at(type->type)(context);
 
-    // Initialize the variable with a default value based on its type
-    Value *defaultValue;
-    if (type->type == "int" || type->type == "INTEGER")
-    {
-        defaultValue = ConstantInt::get(Type::getInt32Ty(context), 0);
-    }
-    else if (type->type == "real" || type->type == "REAL")
-    {
-        defaultValue = ConstantFP::get(Type::getDoubleTy(context), 0.0);
-    }
-    else if (type->type == "boolean" || type->type == "BOOLEAN")
-    {
-        defaultValue = ConstantInt::get(Type::getInt1Ty(context), 0);
-    }
-    else if (type->type == "char" || type->type == "CHAR")
-    {
-        defaultValue = ConstantInt::get(Type::getInt8Ty(context), 0);
-    }
-    else if (type->type == "string" || type->type == "STRING")
-    {
-        defaultValue = ConstantPointerNull::get(PointerType::get(Type::getInt8Ty(context), 0));
-    }
-    else if (type->type == "date" || type->type == "DATE")
-    {
-        defaultValue = ConstantPointerNull::get(PointerType::get(Type::getInt8Ty(context), 0));
-    }
-    else
-    {
-        defaultValue = ConstantFP::get(Type::getDoubleTy(context), 0.0);
-    }
+    AllocaInst *alloca = builder.CreateAlloca(varType, nullptr, identifier);
 
-    // Store the default value in the alloca
-    builder.CreateStore(defaultValue, alloca);
+    globalSymbolTable->setSymbol(identifier, alloca, varType);
 
-    // Store the alloca in the symbol table
-    globalSymbolTable->setSymbol(identifier, alloca, builder.getDoubleTy());
-    errs() << "Declaration codegen completed for: " << identifier << "\n";
+    llvm::errs() << "Declaration codegen completed for: " << identifier << "\n";
     return alloca;
-}
-
-Value *NumberAST::codegen()
-{
-    DEBUG_PRINT_FUNCTION();
-    return createDoubleConstant(value);
 }
 
 Value *LogicalOpAST::codegen()

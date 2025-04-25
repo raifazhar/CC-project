@@ -155,7 +155,8 @@ void debug_indent(int spaces, const char* action) {
 <normal>"CALL"                 { debug_token("CALL", yytext); return tok_Call; }
 
 <normal>[a-zA-Z][a-zA-Z0-9_]*  { debug_token("IDENTIFIER", yytext); yylval.identifier = strdup(yytext); return tok_Identifier; }
-<normal>[0-9]+(\.[0-9]+)?      { debug_token("NUMBER", yytext); yylval.double_literal = atof(yytext); return tok_Double_Literal; }
+<normal>[0-9]+             { debug_token("INTEGER", yytext); yylval.integer_literal = atoi(yytext); return tok_Integer_Literal; }
+<normal>[0-9]+\.[0-9]+      { debug_token("REAL", yytext); yylval.real_literal = atof(yytext); return tok_Real_Literal; }
 <normal>\"([^"]*)\"            {
     debug_token("STRING_LITERAL", yytext);
     yylval.string_literal = strdup(yytext + 1);

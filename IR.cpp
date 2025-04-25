@@ -151,18 +151,45 @@ void printDouble(Value *value)
 
 Value *performBinaryOperation(Value *lhs, Value *rhs, char op)
 {
-    switch (op)
+    Type *lhsType = lhs->getType();
+
+    if (lhsType->isIntegerTy())
     {
-    case '+':
-        return builder.CreateFAdd(lhs, rhs, "fadd");
-    case '-':
-        return builder.CreateFSub(lhs, rhs, "fsub");
-    case '*':
-        return builder.CreateFMul(lhs, rhs, "fmul");
-    case '/':
-        return builder.CreateFDiv(lhs, rhs, "fdiv");
-    default:
-        yyerror("illegal binary operation");
+        switch (op)
+        {
+        case '+':
+            return builder.CreateAdd(lhs, rhs, "addtmp");
+        case '-':
+            return builder.CreateSub(lhs, rhs, "subtmp");
+        case '*':
+            return builder.CreateMul(lhs, rhs, "multmp");
+        case '/':
+            return builder.CreateSDiv(lhs, rhs, "divtmp"); // signed division
+        default:
+            yyerror("illegal binary operation for integer");
+            exit(EXIT_FAILURE);
+        }
+    }
+    else if (lhsType->isFloatingPointTy())
+    {
+        switch (op)
+        {
+        case '+':
+            return builder.CreateFAdd(lhs, rhs, "faddtmp");
+        case '-':
+            return builder.CreateFSub(lhs, rhs, "fsubtmp");
+        case '*':
+            return builder.CreateFMul(lhs, rhs, "fmultmp");
+        case '/':
+            return builder.CreateFDiv(lhs, rhs, "fdivtmp");
+        default:
+            yyerror("illegal binary operation for float");
+            exit(EXIT_FAILURE);
+        }
+    }
+    else
+    {
+        yyerror("unsupported operand type");
         exit(EXIT_FAILURE);
     }
 }

@@ -7,6 +7,12 @@
 
 class SymbolTable
 {
+    struct SymbolEntry
+    {
+        llvm::Value *value;
+        llvm::Type *type;
+    };
+
 public:
     SymbolTable(CodegenContext &ctx); // Constructor accepting CodegenContext reference
 
@@ -15,9 +21,10 @@ public:
     llvm::Value *lookupSymbol(const std::string &id);
     void setSymbol(const std::string &id, llvm::Value *value, llvm::Type *type);
     llvm::Value *createNewSymbol(const std::string &id, llvm::Type *type);
+    Type *getSymbolType(const std::string &id);
 
 private:
-    std::stack<std::map<std::string, std::pair<llvm::Value *, llvm::Type *>>> SymbolTableStack;
+    std::stack<std::unordered_map<std::string, SymbolEntry>> SymbolTableStack;
     CodegenContext &codegenContext; // Reference to CodegenContext
 };
 

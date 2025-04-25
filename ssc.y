@@ -23,20 +23,25 @@
 %union {
     char *identifier;
     int integer_literal;
-    double double_literal;
+    double real_literal;
     char *string_literal;
     char char_literal;
     bool boolean_literal;
     char* date_literal;
     ASTNode* ast_node;
     TypeAST* type_node;
+    ComparisonAST* comparison_ast;
+    AssignmentAST* assignment_ast;
+    BinaryOpAST* binary_ast;
+    RealLiteralAST* real_ast;
     std::vector<ASTNode*>* stmt_list;
     std::vector<std::string>* param_list;
+    StatementBlockAST* statement_block_ast;
 }
 
 %token <identifier> tok_Identifier
 %token <integer_literal> tok_Integer_Literal
-%token <double_literal> tok_Double_Literal
+%token <real_literal> tok_Real_Literal
 %token <string_literal> tok_String_Literal
 %token <char_literal> tok_Char_Literal          
 %token <boolean_literal> tok_Bool_Literal  
@@ -54,7 +59,6 @@
 %token tok_Integer tok_Real tok_Boolean tok_Char tok_String tok_Date
 
 %token tok_Indent tok_Dedent tok_Newline
-%token tok_And tok_Or
 %token tok_AddOne "++"
 %token tok_SubOne "--"
 %token tok_EQ "=="
@@ -62,14 +66,18 @@
 %token tok_LE "<="
 %token tok_GE ">="
 
-%left '+' '-' '*' '/' '<' '>' tok_LE tok_GE tok_EQ tok_NEQ tok_AddOne tok_SubOne tok_And tok_Or
+%left '+' '-' '*' '/' '<' '>' tok_LE tok_GE tok_EQ tok_NEQ tok_AddOne tok_SubOne
 
-%type <ast_node> statement  assignment if_stmt for_stmt while_stmt repeat_stmt statement_block
-%type <ast_node> function_stmt procedure_stmt func_call_stmt return_stmt
-%type <ast_node> term expression comparison printd prints declaration
+%type <ast_node> statement expression term
+%type <ast_node> if_stmt for_stmt while_stmt repeat_stmt
+%type <ast_node> procedure_stmt function_stmt func_call_stmt return_stmt declaration
+%type <comparison_ast> comparison
+%type <assignment_ast> assignment
+%type <binary_ast> binary_operation
 %type <type_node> type
-%type <stmt_list> statements statement_line argument_list 
+%type <stmt_list> statements statement_line argument_list
 %type <param_list> parameter_list
+%type <statement_block_ast> statement_block
 
 %start root
 
@@ -78,12 +86,32 @@
 root:
     statements {
         fprintf(stderr, "Processing %zu statements\n", $1->size());
+
+        globalSymbolTable->enterScope();
+
+        bool hasError = false;
+
         for (ASTNode* node : *$1) {
             fprintf(stderr, "Codegen for node type: %s\n", typeid(*node).name());
-            node->codegen();
+            Value* result = node->codegen();
+
+            if (!result) {
+                fprintf(stderr, "Codegen failed for node. Aborting...\n");
+                hasError = true;
+                break;  // stop further codegen
+            }
+
             delete node;
         }
+
+        globalSymbolTable->exitScope();
         delete $1;
+
+        if (hasError) {
+            fprintf(stderr, "Errors encountered. IR will not be emitted.\n");
+            exit(EXIT_FAILURE);
+        }
+
         addReturnInstr();
         fprintf(stderr, "Added return instruction\n");
 
@@ -91,9 +119,10 @@ root:
             fprintf(stderr, "Module verification failed!\n");
             exit(EXIT_FAILURE);
         }
+
         fprintf(stderr, "Module verification passed\n");
+        llvm::errs().flush();
     }
-    
 ;
 
 statements:
@@ -136,8 +165,6 @@ statement_line:
 statement:
       assignment { fprintf(stderr, "DEBUG: Processing assignment statement\n"); $$ = $1; }
     | expression { fprintf(stderr, "DEBUG: Processing expression statement\n"); $$ = $1; }
-    | printd { fprintf(stderr, "DEBUG: Processing printd statement\n"); $$ = $1; }
-    | prints { fprintf(stderr, "DEBUG: Processing prints statement\n"); $$ = $1; }
     | if_stmt { fprintf(stderr, "DEBUG: Processing if statement\n"); $$ = $1; }
     | for_stmt { fprintf(stderr, "DEBUG: Processing for statement\n"); $$ = $1; }
     | while_stmt { fprintf(stderr, "DEBUG: Processing while statement\n"); $$ = $1; }
@@ -149,26 +176,26 @@ statement:
     | return_stmt { fprintf(stderr, "DEBUG: Processing return statement\n"); $$=$1; }
 ;
 
-prints:
-    tok_Prints '(' tok_String_Literal ')' { $$ = new PrintStrAST(std::string($3)); }
-;
-
-printd:
-    tok_Printd '(' term ')'  { $$ = new PrintDoubleAST($3); }
-;
 
 type:
-      tok_Integer { $$ = new TypeAST("int"); }
-    | tok_Real { $$ = new TypeAST("real"); }
-    | tok_Boolean { $$ = new TypeAST("boolean"); }
-    | tok_String { $$ = new TypeAST("string"); }
-    | tok_Char { $$ = new TypeAST("char"); }
+      tok_Integer { $$ = new TypeAST("INTEGER"); }
+    | tok_Real { $$ = new TypeAST("REAL"); }
+    | tok_Boolean { $$ = new TypeAST("BOOLEAN"); }
+    | tok_String { $$ = new TypeAST("STRING"); }
+    | tok_Char { $$ = new TypeAST("CHAR"); }
     | tok_Date { $$ = new TypeAST("date"); }
 ;
 
 declaration:
     tok_Declare tok_Identifier ':' type {
-        $$ = new DeclarationAST(std::string($2), dynamic_cast<TypeAST*>($4));
+        $$ = new DeclarationAST(std::string($2), $4);
+        free($2);
+    }
+    | tok_Declare tok_Identifier ':' type '=' expression {
+        // Create a declaration and assignment with type information
+        auto decl = new DeclarationAST(std::string($2), $4);
+        $$ = new AssignmentAST(std::string($2), $6, $4);
+        decl->codegen(); // Generate the declaration first
         free($2);
     }
 ;
@@ -182,7 +209,7 @@ assignment:
 term:
       tok_Identifier { $$ = new IdentifierAST(std::string($1)); free($1); }
     | tok_Integer_Literal { $$ = new IntegerLiteralAST($1); }
-    | tok_Double_Literal { $$ = new NumberAST($1); }
+    | tok_Real_Literal { $$ = new RealLiteralAST($1); }
     | tok_String_Literal { $$ = new StringLiteralAST(std::string($1)); free($1); }
     | tok_Bool_Literal { $$ = new BooleanLiteralAST($1); }
     | tok_Char_Literal { $$ = new CharLiteralAST($1); }
@@ -194,24 +221,23 @@ expression:
       term { $$ = $1; }
     | expression tok_AddOne { $$ = new BinaryOpAST($1, nullptr, '+'); }
     | expression tok_SubOne { $$ = new BinaryOpAST($1, nullptr, '-'); }
-    | expression '+' expression { $$ = new BinaryOpAST($1, $3, '+'); }
-    | expression '-' expression { $$ = new BinaryOpAST($1, $3, '-'); }
-    | expression '/' expression { $$ = new BinaryOpAST($1, $3, '/'); }
-    | expression '*' expression { $$ = new BinaryOpAST($1, $3, '*'); }
-    | '(' expression ')' { $$ = $2; }
+    | binary_operation { $$ = $1; }
 ;
 
 comparison:
-      comparison tok_And comparison { $$ = new LogicalOpAST("and", $1, $3); }
-    | comparison tok_Or comparison { $$ = new LogicalOpAST("or", $1, $3); }
-    | expression { $$ = new ComparisonAST(6, $1, nullptr); }
-    | '!' expression { $$ = new ComparisonAST(3, $2, nullptr); }
-    | expression '>' expression { $$ = new ComparisonAST(1, $1, $3); }
+      expression '>' expression { $$ = new ComparisonAST(1, $1, $3); }
     | expression '<' expression { $$ = new ComparisonAST(2, $1, $3); }
     | expression tok_EQ expression { $$ = new ComparisonAST(3, $1, $3); }
     | expression tok_LE expression { $$ = new ComparisonAST(4, $1, $3); }
     | expression tok_GE expression { $$ = new ComparisonAST(5, $1, $3); }
     | expression tok_NEQ expression { $$ = new ComparisonAST(6, $1, $3); }
+;
+
+binary_operation:
+      expression '+' expression { $$ = new BinaryOpAST($1, $3, '+'); }
+    | expression '-' expression { $$ = new BinaryOpAST($1, $3, '-'); }
+    | expression '*' expression { $$ = new BinaryOpAST($1, $3, '*'); }
+    | expression '/' expression { $$ = new BinaryOpAST($1, $3, '/'); }
 ;
 
 statement_block: 
@@ -229,50 +255,47 @@ statement_block:
 ;
 
 if_stmt:
-    tok_If comparison statement_block tok_End_If 
-        {
-            auto block = dynamic_cast<StatementBlockAST*>($3);
-            fprintf(stderr, "DEBUG: Processing simple if statement\n");
-            $$ = new IfAST($2, block->statements, {});
-        }
-    | tok_If comparison statement_block tok_Else statement_block tok_Dedent tok_End_If 
-        {
-            auto thenBlock = dynamic_cast<StatementBlockAST*>($3);
-            auto elseBlock = dynamic_cast<StatementBlockAST*>($5);
-            fprintf(stderr, "DEBUG: Processing if-else statement\n");
-            $$ = new IfAST($2, thenBlock->statements, elseBlock->statements);
-        }
+    tok_If comparison statement_block tok_End_If {
+        $$ = new IfAST($2, $3->statements, {});
+    }
+    | tok_If comparison statement_block tok_Else statement_block tok_Dedent tok_End_If {
+        $$ = new IfAST($2, $3->statements, $5->statements);
+    }
 ;
 
 for_stmt:
-    tok_For assignment tok_To expression tok_Step expression statement_block tok_Next tok_Identifier {
-        if (strcmp($9, ((AssignmentAST*)$2)->identifier.c_str()) != 0) {
+    tok_For assignment tok_To expression statement_block tok_Next tok_Identifier {
+        if (strcmp($7, $2->identifier.c_str()) != 0) {
             yyerror("Loop variable mismatch");
             YYERROR;
         }
-        $$ = new ForAST($2, $4, $6, dynamic_cast<StatementBlockAST*>($7)->statements);
+        // Create default increment of 1
+        auto increment = new BinaryOpAST(new IntegerLiteralAST(1), nullptr, '+');
+        $$ = new ForAST($2, new ComparisonAST(4, $2, $4), increment, $5->statements);
+        free($7);
+    }
+    | tok_For assignment tok_To expression tok_Step tok_Integer_Literal statement_block tok_Next tok_Identifier {
+        if (strcmp($9, $2->identifier.c_str()) != 0) {
+            yyerror("Loop variable mismatch");
+            YYERROR;
+        }
+        // Create step increment using the integer literal
+        auto increment = new BinaryOpAST(new IntegerLiteralAST($6), nullptr, '+');
+        $$ = new ForAST($2, new ComparisonAST(4, $2, $4), increment, $7->statements);
         free($9);
     }
-    | tok_For assignment tok_To expression statement_block tok_Next tok_Identifier {
-        if (strcmp($7, ((AssignmentAST*)$2)->identifier.c_str()) != 0) {
-            yyerror("Loop variable mismatch");
-            YYERROR;
-        }
-        $$ = new ForAST($2, $4, new NumberAST(1), dynamic_cast<StatementBlockAST*>($5)->statements);
-        free($7);
-    };
 ;
 
 while_stmt:
-      tok_While comparison statement_block tok_End_While {
-          $$ = new WhileAST($2, dynamic_cast<StatementBlockAST*>($3)->statements);
-      }
+    tok_While comparison statement_block tok_End_While {
+        $$ = new WhileAST($2, $3->statements);
+    }
 ;
 
 repeat_stmt:
-      tok_Repeat statement_block tok_Until comparison {
-          $$ = new RepeatAST($4, dynamic_cast<StatementBlockAST*>($2)->statements);
-      }
+    tok_Repeat statement_block tok_Until comparison {
+        $$ = new RepeatAST($4, $2->statements);
+    }
 ;
 
 parameter_list:
@@ -291,8 +314,7 @@ parameter_list:
 
 procedure_stmt:
     tok_Procedure tok_Identifier '(' parameter_list ')' statement_block tok_End_Procedure {
-        StatementBlockAST* block = dynamic_cast<StatementBlockAST*>($6);
-        $$ = new ProcedureAST(std::string($2), *$4, block->statements);
+        $$ = new ProcedureAST(std::string($2), *$4, $6->statements);
         free($2);
     }
 ;
@@ -300,8 +322,7 @@ procedure_stmt:
 function_stmt:
    tok_Function tok_Identifier '(' parameter_list ')' tok_Returns type statement_block tok_End_Function 
     { 
-        StatementBlockAST* block = dynamic_cast<StatementBlockAST*>($7);
-        $$ = new FuncAST(std::string($2), *$4, block->statements, (TypeAST*)($7));  // Use C-style cast with parentheses
+        $$ = new FuncAST(std::string($2), *$4, $8->statements, $7);
         free($2);
     }
 ;
