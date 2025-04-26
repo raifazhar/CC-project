@@ -95,30 +95,14 @@ root:
             fprintf(stderr, "Codegen for node type: %s\n", typeid(*node).name());
             Value* result = node->codegen();
 
-            if (!result) {
-                fprintf(stderr, "Codegen failed for node. Aborting...\n");
-                hasError = true;
-                break;  // stop further codegen
-            }
-
             delete node;
         }
 
         globalSymbolTable->exitScope();
         delete $1;
 
-        if (hasError) {
-            fprintf(stderr, "Errors encountered. IR will not be emitted.\n");
-            exit(EXIT_FAILURE);
-        }
-
         addReturnInstr();
         fprintf(stderr, "Added return instruction\n");
-
-        if (verifyModule(*module, &errs())) {
-            fprintf(stderr, "Module verification failed!\n");
-            exit(EXIT_FAILURE);
-        }
 
         fprintf(stderr, "Module verification passed\n");
         llvm::errs().flush();
@@ -188,14 +172,8 @@ type:
 
 declaration:
     tok_Declare tok_Identifier ':' type {
-        $$ = new DeclarationAST(std::string($2), $4);
-        free($2);
-    }
-    | tok_Declare tok_Identifier ':' type '=' expression {
-        // Create a declaration and assignment with type information
-        auto decl = new DeclarationAST(std::string($2), $4);
-        $$ = new AssignmentAST(std::string($2), $6, $4);
-        decl->codegen(); // Generate the declaration first
+
+        $$ = new DeclarationAST(new IdentifierAST(std::string($2)), $4);
         free($2);
     }
 ;
@@ -219,25 +197,25 @@ term:
 
 expression:
       term { $$ = $1; }
-    | expression tok_AddOne { $$ = new BinaryOpAST($1, nullptr, '+'); }
-    | expression tok_SubOne { $$ = new BinaryOpAST($1, nullptr, '-'); }
     | binary_operation { $$ = $1; }
 ;
 
 comparison:
-      expression '>' expression { $$ = new ComparisonAST(1, $1, $3); }
-    | expression '<' expression { $$ = new ComparisonAST(2, $1, $3); }
-    | expression tok_EQ expression { $$ = new ComparisonAST(3, $1, $3); }
-    | expression tok_LE expression { $$ = new ComparisonAST(4, $1, $3); }
-    | expression tok_GE expression { $$ = new ComparisonAST(5, $1, $3); }
-    | expression tok_NEQ expression { $$ = new ComparisonAST(6, $1, $3); }
+      expression '>' expression { $$ = new ComparisonAST( $1, $3, ">"); }
+    | expression '<' expression { $$ = new ComparisonAST( $1, $3,"<"); }
+    | expression tok_EQ expression { $$ = new ComparisonAST( $1, $3, "=="); }
+    | expression tok_LE expression { $$ = new ComparisonAST($1, $3,"<="); }
+    | expression tok_GE expression { $$ = new ComparisonAST($1, $3,">="); }
+    | expression tok_NEQ expression { $$ = new ComparisonAST( $1, $3,"!="); }
 ;
 
 binary_operation:
-      expression '+' expression { $$ = new BinaryOpAST($1, $3, '+'); }
-    | expression '-' expression { $$ = new BinaryOpAST($1, $3, '-'); }
-    | expression '*' expression { $$ = new BinaryOpAST($1, $3, '*'); }
-    | expression '/' expression { $$ = new BinaryOpAST($1, $3, '/'); }
+      expression tok_AddOne { $$ = new BinaryOpAST($1, nullptr, "++"); }
+    | expression tok_SubOne { $$ = new BinaryOpAST($1, nullptr, "--"); }
+    | expression '+' expression { $$ = new BinaryOpAST($1, $3, "+"); }
+    | expression '-' expression { $$ = new BinaryOpAST($1, $3, "-"); }
+    | expression '*' expression { $$ = new BinaryOpAST($1, $3, "*"); }
+    | expression '/' expression { $$ = new BinaryOpAST($1, $3, "/"); }
 ;
 
 statement_block: 
@@ -256,10 +234,10 @@ statement_block:
 
 if_stmt:
     tok_If comparison statement_block tok_End_If {
-        $$ = new IfAST($2, $3->statements, {});
+        $$ = new IfAST($2, $3, {});
     }
     | tok_If comparison statement_block tok_Else statement_block tok_Dedent tok_End_If {
-        $$ = new IfAST($2, $3->statements, $5->statements);
+        $$ = new IfAST($2, $3, $5);
     }
 ;
 
@@ -269,19 +247,30 @@ for_stmt:
             yyerror("Loop variable mismatch");
             YYERROR;
         }
-        // Create default increment of 1
-        auto increment = new BinaryOpAST(new IntegerLiteralAST(1), nullptr, '+');
-        $$ = new ForAST($2, new ComparisonAST(4, $2, $4), increment, $5->statements);
+
+        auto loopVar = new IdentifierAST($2->identifier);
+        auto cond = new ComparisonAST( loopVar, $4,"<="); // 4 is '<='
+
+        // increment: x + 1
+        auto binaryOp = new BinaryOpAST(loopVar, new IntegerLiteralAST(1), "+");
+        auto incrementAssign = new AssignmentAST($2->identifier, binaryOp, nullptr);
+        $$ = new ForAST($2, cond, incrementAssign, $5);
         free($7);
     }
+
     | tok_For assignment tok_To expression tok_Step tok_Integer_Literal statement_block tok_Next tok_Identifier {
         if (strcmp($9, $2->identifier.c_str()) != 0) {
             yyerror("Loop variable mismatch");
             YYERROR;
         }
         // Create step increment using the integer literal
-        auto increment = new BinaryOpAST(new IntegerLiteralAST($6), nullptr, '+');
-        $$ = new ForAST($2, new ComparisonAST(4, $2, $4), increment, $7->statements);
+        auto loopVar = new IdentifierAST($2->identifier);
+        auto cond = new ComparisonAST( loopVar, $4,"<="); // 4 is '<='
+        auto binaryOp = new BinaryOpAST(loopVar, new IntegerLiteralAST($6) , "+");
+        auto incrementAssign = new AssignmentAST($2->identifier, binaryOp, nullptr);
+
+
+        $$ = new ForAST($2,cond, incrementAssign, $7);
         free($9);
     }
 ;

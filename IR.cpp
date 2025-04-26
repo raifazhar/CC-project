@@ -149,69 +149,95 @@ void printDouble(Value *value)
     printfLLVM("%f\n", value);
 }
 
-Value *performBinaryOperation(Value *lhs, Value *rhs, char op)
+Value *performBinaryOperation(Value *lhs, Value *rhs, const std::string &op)
 {
-    Type *lhsType = lhs->getType();
+    Type *type = lhs->getType();
 
-    if (lhsType->isIntegerTy())
+    // Binary operation: Check operand types
+    if (!rhs && op != "++" && op != "--")
     {
-        switch (op)
-        {
-        case '+':
-            return builder.CreateAdd(lhs, rhs, "addtmp");
-        case '-':
-            return builder.CreateSub(lhs, rhs, "subtmp");
-        case '*':
-            return builder.CreateMul(lhs, rhs, "multmp");
-        case '/':
-            return builder.CreateSDiv(lhs, rhs, "divtmp"); // signed division
-        default:
-            yyerror("illegal binary operation for integer");
-            exit(EXIT_FAILURE);
-        }
+        yyerror(("Missing right-hand operand for binary operator: " + op).c_str());
+        exit(EXIT_FAILURE);
     }
-    else if (lhsType->isFloatingPointTy())
+
+    if (type->isIntegerTy())
     {
-        switch (op)
-        {
-        case '+':
+        if (op == "++")
+            return builder.CreateAdd(lhs, ConstantInt::get(type, 1), "increment");
+        if (op == "--")
+            return builder.CreateSub(lhs, ConstantInt::get(type, 1), "decrement");
+        if (op == "+")
+            return builder.CreateAdd(lhs, rhs, "addtmp");
+        if (op == "-")
+            return builder.CreateSub(lhs, rhs, "subtmp");
+        if (op == "*")
+            return builder.CreateMul(lhs, rhs, "multmp");
+        if (op == "/")
+            return builder.CreateSDiv(lhs, rhs, "divtmp");
+    }
+    else if (type->isFloatingPointTy())
+    {
+        if (op == "++")
+            return builder.CreateFAdd(lhs, ConstantFP::get(type, 1.0), "fincrement");
+        if (op == "--")
+            return builder.CreateFSub(lhs, ConstantFP::get(type, 1.0), "fdecrement");
+        if (op == "+")
             return builder.CreateFAdd(lhs, rhs, "faddtmp");
-        case '-':
+        if (op == "-")
             return builder.CreateFSub(lhs, rhs, "fsubtmp");
-        case '*':
+        if (op == "*")
             return builder.CreateFMul(lhs, rhs, "fmultmp");
-        case '/':
+        if (op == "/")
             return builder.CreateFDiv(lhs, rhs, "fdivtmp");
-        default:
-            yyerror("illegal binary operation for float");
-            exit(EXIT_FAILURE);
-        }
+    }
+
+    yyerror(("Unsupported or illegal operator: " + op).c_str());
+    exit(EXIT_FAILURE);
+}
+
+Value *performComparison(Value *lhs, Value *rhs, const std::string &op)
+{
+    // Floating-point comparison
+    if (lhs->getType()->isFloatingPointTy() && rhs->getType()->isFloatingPointTy())
+    {
+        if (op == "<")
+            return builder.CreateFCmpULT(lhs, rhs, "fless");
+        if (op == ">")
+            return builder.CreateFCmpUGT(lhs, rhs, "fgreater");
+        if (op == "==")
+            return builder.CreateFCmpUEQ(lhs, rhs, "fequal");
+        if (op == "<=")
+            return builder.CreateFCmpULE(lhs, rhs, "flessequal");
+        if (op == ">=")
+            return builder.CreateFCmpUGE(lhs, rhs, "fgreaterequal");
+        if (op == "!=")
+            return builder.CreateFCmpUNE(lhs, rhs, "fnotequal");
+
+        yyerror("illegal floating-point comparison operation");
+        exit(EXIT_FAILURE);
+    }
+    // Integer comparison
+    else if (lhs->getType()->isIntegerTy() && rhs->getType()->isIntegerTy())
+    {
+        if (op == "<")
+            return builder.CreateICmpSLT(lhs, rhs, "iless");
+        if (op == ">")
+            return builder.CreateICmpSGT(lhs, rhs, "igreater");
+        if (op == "==")
+            return builder.CreateICmpEQ(lhs, rhs, "iequal");
+        if (op == "<=")
+            return builder.CreateICmpSLE(lhs, rhs, "ilessequal");
+        if (op == ">=")
+            return builder.CreateICmpSGE(lhs, rhs, "igreaterequal");
+        if (op == "!=")
+            return builder.CreateICmpNE(lhs, rhs, "inotequal");
+
+        yyerror("illegal integer comparison operation");
+        exit(EXIT_FAILURE);
     }
     else
     {
-        yyerror("unsupported operand type");
-        exit(EXIT_FAILURE);
-    }
-}
-
-Value *performComparison(Value *lhs, Value *rhs, int op)
-{
-    switch (op)
-    {
-    case 1:
-        return builder.CreateFCmpUGT(lhs, rhs, "fgreater");
-    case 2:
-        return builder.CreateFCmpULT(lhs, rhs, "fless");
-    case 3:
-        return builder.CreateFCmpUEQ(lhs, rhs, "fequal");
-    case 5:
-        return builder.CreateFCmpULE(lhs, rhs, "flessequal");
-    case 4:
-        return builder.CreateFCmpUGE(lhs, rhs, "fgreaterequal");
-    case 6:
-        return builder.CreateFCmpUNE(lhs, rhs, "fnotequal");
-    default:
-        yyerror("illegal comparison operation");
+        yyerror("comparison between incompatible types");
         exit(EXIT_FAILURE);
     }
 }

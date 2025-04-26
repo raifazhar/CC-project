@@ -56,13 +56,6 @@ const std::unordered_map<std::string, TypeAST::TypeGenerator> TypeAST::typeMap =
      }},
 };
 
-Value *TypeAST::codegen()
-{
-    DEBUG_PRINT_FUNCTION();
-
-    return nullptr;
-}
-
 Value *CharLiteralAST::codegen()
 {
     DEBUG_PRINT_FUNCTION();
@@ -201,73 +194,12 @@ Value *AssignmentAST::codegen()
 Value *BinaryOpAST::codegen()
 {
     DEBUG_PRINT_FUNCTION();
-    errs() << "I am being called";
-    // Handle ++ / -- (postfix): expression2 is null
-    if (expression2 == nullptr && (op == '+' || op == '-'))
-    {
-        // Since we're handling postfix operations, expression1 must be an identifier
-        if (!isa<IdentifierAST>(expression1))
-        {
-            errs() << "Error: Increment/Decrement only valid on variables.\n";
-            return nullptr;
-        }
-
-        auto var = static_cast<IdentifierAST *>(expression1);
-        Value *varPtr = getFromSymbolTable(var->name);
-        if (!varPtr || !varPtr->getType()->isPointerTy())
-        {
-            errs() << "Invalid variable for post-inc/dec: " << var->name << "\n";
-            return nullptr;
-        }
-
-        Value *oldVal = builder.CreateLoad(Type::getDoubleTy(context), varPtr, "loadtmp");
-        Value *one = ConstantFP::get(Type::getDoubleTy(context), 1.0);
-        Value *newVal = (op == '+')
-                            ? builder.CreateFAdd(oldVal, one, "inc")
-                            : builder.CreateFSub(oldVal, one, "dec");
-
-        builder.CreateStore(newVal, varPtr);
-
-        return oldVal; // Return old value for post-inc semantics
-    }
-
-    // Normal binary operation: i + 1, a * b, etc.
-    Value *exprVal1 = expression1->codegen();
-    Value *exprVal2 = expression2->codegen();
-
-    errs() << op << "\n";
-    return performBinaryOperation(exprVal1, exprVal2, op);
-}
-
-Value *BinaryOpAST::codegen_add_one()
-{
-    DEBUG_PRINT_FUNCTION();
-
-    // Assume expression1 is a VariableAST
-    IdentifierAST *var = (IdentifierAST *)expression1;
-    Value *varPtr = getFromSymbolTable(var->name);
-    // Load, increment, store
-    Value *oldVal = builder.CreateLoad(Type::getDoubleTy(context), varPtr, "loadtmp");
-    Value *one = ConstantFP::get(Type::getDoubleTy(context), 1.0);
-    Value *newVal;
-
-    if (op == '+')
-    {
-        newVal = builder.CreateFAdd(oldVal, one, "addtmp");
-    }
-    else if (op == '-')
-    {
-        newVal = builder.CreateFSub(oldVal, one, "subtmp");
-    }
-
-    // If varPtr is a pointer, store the result back to the original variable
-    if (varPtr->getType()->isPointerTy())
-    {
-        builder.CreateStore(newVal, varPtr);
-    }
-
-    // Optionally return newVal or oldVal for post-increment semantics
-    return newVal;
+    // Binary operation
+    Value *lhs = expression1->codegen();
+    Value *rhs = nullptr;
+    if (expression2)
+        rhs = expression2->codegen();
+    return performBinaryOperation(lhs, rhs, op);
 }
 
 Value *PrintStrAST::codegen()
@@ -314,17 +246,16 @@ Value *IfAST::codegen()
     builder.CreateCondBr(condVal, thenBB, elseBB);
 
     builder.SetInsertPoint(thenBB);
-    for (auto *stmt : thenBlock)
-    {
-        stmt->codegen();
-    }
+
+    thenBlock->codegen();
+
     builder.CreateBr(mergeBB);
 
     builder.SetInsertPoint(elseBB);
-    for (auto *stmt : elseBlock)
-    {
-        stmt->codegen();
-    }
+
+    if (elseBlock)
+        elseBlock->codegen();
+
     builder.CreateBr(mergeBB);
 
     builder.SetInsertPoint(mergeBB);
@@ -342,53 +273,28 @@ Value *ForAST::codegen()
     BasicBlock *loopBB = BasicBlock::Create(context, "for.body", function);
     BasicBlock *afterBB = BasicBlock::Create(context, "for.end", function);
 
-    // Initialize loop variable
+    // Initialize loop variable (e.g., INDEX = 1)
     if (assignment)
-    {
         assignment->codegen();
-    }
 
-    // Branch to condition block
+    // Jump to condition block
     builder.CreateBr(condBB);
 
-    // Generate condition block
+    // Condition block
     builder.SetInsertPoint(condBB);
-    AssignmentAST *assignmentNode = (AssignmentAST *)assignment;
-    Value *loopVar = getFromSymbolTable(assignmentNode->identifier);
-    Value *currentValue = builder.CreateLoad(Type::getDoubleTy(context), loopVar, "current");
-    Value *endValue = condition->codegen();
-    Value *condVal = builder.CreateFCmpOLE(currentValue, endValue, "loopcond");
-    builder.CreateCondBr(condVal, loopBB, afterBB);
+    Value *condValue = condition->codegen(); // Should return i1 from ComparisonAST
+    builder.CreateCondBr(condValue, loopBB, afterBB);
 
-    // Generate loop body
+    // Loop body
     builder.SetInsertPoint(loopBB);
-    for (auto *stmt : forBlock)
-    {
-        stmt->codegen();
-    }
+    forBlock->codegen();
 
-    // Update loop variable using the step expression
-    currentValue = builder.CreateLoad(Type::getDoubleTy(context), loopVar, "current");
-    // Use the step expression from the AST
-    if (expression)
-    {
-        // Generate code for the step expression and add it to current value
-        Value *stepValue = expression->codegen();
-        Value *nextValue = builder.CreateFAdd(currentValue, stepValue, "next");
-        builder.CreateStore(nextValue, loopVar);
-    }
-    else
-    {
-        // Default increment by 1 if no step was provided
-        Value *one = ConstantFP::get(Type::getDoubleTy(context), 1.0);
-        Value *nextValue = builder.CreateFAdd(currentValue, one, "next");
-        builder.CreateStore(nextValue, loopVar);
-    }
-
-    // Branch back to condition
+    // Step update
+    step->codegen(); // Generates and stores the increment/decrement
+    // Loop back
     builder.CreateBr(condBB);
 
-    // Move to after block
+    // After loop
     builder.SetInsertPoint(afterBB);
     return nullptr;
 }
@@ -546,17 +452,17 @@ Value *FuncCallAST::codegen()
 Value *DeclarationAST::codegen()
 {
     DEBUG_PRINT_FUNCTION();
-    llvm::errs() << "Generating code for declaration: " << identifier << " of type " << type->type << "\n";
+    llvm::errs() << "Generating code for declaration: " << identifier->name << " of type " << type->type << "\n";
 
     // Get the default value for this type (e.g., 0 for integer types)
     CodegenContext ctx(context, module, builder, builder.GetInsertBlock()->getParent());
     llvm::Type *varType = TypeAST::typeMap.at(type->type)(context);
 
-    AllocaInst *alloca = builder.CreateAlloca(varType, nullptr, identifier);
+    AllocaInst *alloca = builder.CreateAlloca(varType, nullptr, identifier->name);
 
-    globalSymbolTable->setSymbol(identifier, alloca, varType);
+    globalSymbolTable->setSymbol(identifier->name, alloca, varType);
 
-    llvm::errs() << "Declaration codegen completed for: " << identifier << "\n";
+    llvm::errs() << "Declaration codegen completed for: " << identifier->name << "\n";
     return alloca;
 }
 
