@@ -188,7 +188,9 @@ assignment:
 term:
       tok_Identifier { $$ = new IdentifierAST(std::string($1)); free($1); }
     | tok_Integer_Literal { $$ = new IntegerLiteralAST($1); }
-    | tok_Real_Literal { $$ = new RealLiteralAST($1); }
+    | '-' tok_Integer_Literal { $$ = new IntegerLiteralAST(-$2); }
+    | tok_Real_Literal { $$ = new RealLiteralAST(-$1); }
+    | '-' tok_Real_Literal { $$ = new RealLiteralAST($2); }
     | tok_String_Literal { $$ = new StringLiteralAST(std::string($1)); free($1); }
     | tok_Bool_Literal { $$ = new BooleanLiteralAST($1); }
     | tok_Char_Literal { $$ = new CharLiteralAST($1); }
@@ -250,7 +252,9 @@ for_stmt:
         }
 
         auto loopVar = $2->identifier;
-        auto cond = new ComparisonAST(loopVar, $4, "<=");
+        auto startLit = dynamic_cast<IntegerLiteralAST*>($2->expression);
+        auto endLit = dynamic_cast<IntegerLiteralAST*>($4);
+        auto cond = new ComparisonAST(loopVar, $4,(startLit && endLit && startLit->value > endLit->value) ? ">=" : "<=");
 
         // Determine step size
         auto step = $5 ? new IntegerLiteralAST($5) : new IntegerLiteralAST(1);
@@ -266,6 +270,7 @@ for_stmt:
 // handle optional "STEP"
 opt_step:
     tok_Step tok_Integer_Literal { $$ = $2; }
+    |tok_Step '-' tok_Integer_Literal {$$=-$3;}
     | /* empty */ { $$ = 0; }
 ;
 
