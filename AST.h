@@ -37,7 +37,10 @@ class CharLiteralAST : public ASTNode
 public:
     char value;
     CharLiteralAST(char val) : value(val) {}
-    Value *codegen() override;
+    Value *codegen()
+    {
+        return ConstantInt::get(Type::getInt8Ty(context), value);
+    }
 };
 
 class StringLiteralAST : public ASTNode
@@ -45,7 +48,18 @@ class StringLiteralAST : public ASTNode
 public:
     std::string value;
     StringLiteralAST(const std::string &val) : value(val) {}
-    Value *codegen() override;
+    Value *codegen()
+    {
+        Constant *strConst = ConstantDataArray::getString(context, value);
+        GlobalVariable *gvar = new GlobalVariable(
+            *module,
+            strConst->getType(),
+            true,
+            GlobalValue::PrivateLinkage,
+            strConst,
+            ".str");
+        return gvar;
+    }
 };
 
 class IntegerLiteralAST : public ASTNode
@@ -53,7 +67,10 @@ class IntegerLiteralAST : public ASTNode
 public:
     int value;
     IntegerLiteralAST(int val) : value(val) {}
-    Value *codegen() override;
+    Value *codegen()
+    {
+        return ConstantInt::get(Type::getInt32Ty(context), value);
+    }
 };
 
 class RealLiteralAST : public ASTNode
@@ -61,7 +78,10 @@ class RealLiteralAST : public ASTNode
 public:
     double value;
     RealLiteralAST(double val) : value(val) {}
-    Value *codegen() override;
+    Value *codegen()
+    {
+        return ConstantFP::get(context, APFloat(value));
+    }
 };
 
 class DateLiteralAST : public ASTNode
@@ -69,7 +89,18 @@ class DateLiteralAST : public ASTNode
 public:
     std::string value;
     DateLiteralAST(const std::string &val) : value(val) {}
-    Value *codegen() override;
+    Value *codegen()
+    {
+        Constant *strConst = ConstantDataArray::getString(context, value);
+        GlobalVariable *gvar = new GlobalVariable(
+            *module,
+            strConst->getType(),
+            true,
+            GlobalValue::PrivateLinkage,
+            strConst,
+            ".date");
+        return gvar;
+    }
 };
 
 class BooleanLiteralAST : public ASTNode
@@ -77,7 +108,10 @@ class BooleanLiteralAST : public ASTNode
 public:
     bool value;
     BooleanLiteralAST(bool val) : value(val) {}
-    Value *codegen() override;
+    Value *codegen()
+    {
+        return ConstantInt::get(Type::getInt1Ty(context), value);
+    }
 };
 
 // --- Identifiers and Assignments ---
@@ -111,17 +145,6 @@ public:
 
     BinaryOpAST(ASTNode *lhs, ASTNode *rhs, std::string operation)
         : op(operation), expression1(lhs), expression2(rhs) {}
-    Value *codegen() override;
-};
-
-class UnaryOpAST : public ASTNode
-{
-public:
-    char op;
-    ASTNode *operand;
-
-    UnaryOpAST(char opr, ASTNode *operandNode)
-        : op(opr), operand(operandNode) {}
     Value *codegen() override;
 };
 
@@ -206,22 +229,6 @@ public:
     Value *codegen() override;
 };
 
-class PrintStrAST : public ASTNode
-{
-public:
-    std::string str;
-    PrintStrAST(const std::string &s) : str(s) {}
-    Value *codegen() override;
-};
-
-class PrintRealLiteralAST : public ASTNode
-{
-public:
-    ASTNode *expression;
-    PrintRealLiteralAST(ASTNode *expr) : expression(expr) {}
-    Value *codegen() override;
-};
-
 class ReturnAST : public ASTNode
 {
 public:
@@ -280,4 +287,4 @@ public:
     Value *codegen() override;
 };
 
-#endif // AST_H
+#endif //AST_H

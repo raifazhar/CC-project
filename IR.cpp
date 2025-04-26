@@ -14,11 +14,6 @@ void initSymbolTable(CodegenContext &ctx)
     }
 }
 
-SymbolTable *getSymbolTable()
-{
-    return globalSymbolTable;
-}
-
 // std::map<std::string, Value *> SymbolTable;
 LLVMContext context;
 Module *module = nullptr;
@@ -51,10 +46,6 @@ void addReturnInstr()
     fprintf(stderr, "Return instruction added successfully\n");
 }
 
-Value *createDoubleConstant(double val)
-{
-    return ConstantFP::get(context, APFloat(val));
-}
 
 void printLLVMIR()
 {
@@ -105,27 +96,6 @@ void printLLVMIR()
     module->print(outs(), nullptr);
 }
 
-Value *getFromSymbolTable(const std::string &id)
-{
-    Value *val = globalSymbolTable->lookupSymbol(id);
-    if (val)
-        return val;
-
-    // Symbol not found, create and store
-    Value *defaultValue = builder.CreateAlloca(builder.getDoubleTy(), nullptr, id);
-    globalSymbolTable->setSymbol(id, defaultValue, builder.getDoubleTy());
-    return defaultValue;
-}
-
-void setDouble(const std::string &id, Value *value)
-{
-    Value *ptr = getFromSymbolTable(id);
-    builder.CreateStore(value, ptr);
-    Type *doubleType = Type::getDoubleTy(context);
-
-    // Value* loadedValue = builder.CreateLoad(elementType, ptr, "load_identifier");
-}
-
 void printfLLVM(const char *format, Value *inputValue)
 {
     Function *printfFunc = module->getFunction("printf");
@@ -136,17 +106,6 @@ void printfLLVM(const char *format, Value *inputValue)
     }
     Value *formatVal = builder.CreateGlobalStringPtr(format);
     builder.CreateCall(printfFunc, {formatVal, inputValue}, "printfCall");
-}
-
-void printString(const std::string &str)
-{
-    Value *strValue = builder.CreateGlobalStringPtr(str);
-    printfLLVM("%s", strValue);
-}
-
-void printDouble(Value *value)
-{
-    printfLLVM("%f\n", value);
 }
 
 Value *performBinaryOperation(Value *lhs, Value *rhs, const std::string &op)

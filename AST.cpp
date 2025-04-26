@@ -56,57 +56,10 @@ const std::unordered_map<std::string, TypeAST::TypeGenerator> TypeAST::typeMap =
      }},
 };
 
-Value *CharLiteralAST::codegen()
-{
-    DEBUG_PRINT_FUNCTION();
-    return ConstantInt::get(Type::getInt8Ty(context), value);
-}
-
-Value *StringLiteralAST::codegen()
-{
-    DEBUG_PRINT_FUNCTION();
-    // Create a global string constant
-    Constant *strConst = ConstantDataArray::getString(context, value);
-    GlobalVariable *gvar = new GlobalVariable(
-        *module,
-        strConst->getType(),
-        true,
-        GlobalValue::PrivateLinkage,
-        strConst,
-        ".str");
-    return gvar;
-}
-
-Value *IntegerLiteralAST::codegen()
-{
-    DEBUG_PRINT_FUNCTION();
-    return ConstantInt::get(Type::getInt32Ty(context), value);
-}
-
-Value *RealLiteralAST::codegen()
-{
-    return createDoubleConstant(value);
-}
-
-Value *DateLiteralAST::codegen()
-{
-    DEBUG_PRINT_FUNCTION();
-    // Create a global string constant for the date
-    Constant *strConst = ConstantDataArray::getString(context, value);
-    GlobalVariable *gvar = new GlobalVariable(
-        *module,
-        strConst->getType(),
-        true,
-        GlobalValue::PrivateLinkage,
-        strConst,
-        ".date");
-    return gvar;
-}
-
 Value *IdentifierAST::codegen()
 {
     DEBUG_PRINT_FUNCTION();
-    Value *ptr = getFromSymbolTable(name);
+    Value *ptr = globalSymbolTable->lookupSymbol(name);
 
     if (!ptr)
     {
@@ -200,21 +153,6 @@ Value *BinaryOpAST::codegen()
     if (expression2)
         rhs = expression2->codegen();
     return performBinaryOperation(lhs, rhs, op);
-}
-
-Value *PrintStrAST::codegen()
-{
-    DEBUG_PRINT_FUNCTION();
-    printString(str);
-    return nullptr; // No value produced.
-}
-
-Value *PrintRealLiteralAST::codegen()
-{
-    DEBUG_PRINT_FUNCTION();
-    Value *val = expression->codegen();
-    printDouble(val);
-    return nullptr; // No value produced.
 }
 
 Value *ComparisonAST::codegen()
@@ -501,11 +439,7 @@ Value *StatementBlockAST::codegen()
     return lastValue;
 }
 
-Value *BooleanLiteralAST::codegen()
-{
-    DEBUG_PRINT_FUNCTION();
-    return ConstantInt::get(Type::getInt1Ty(context), value);
-}
+
 
 Value *ReturnAST::codegen()
 {
