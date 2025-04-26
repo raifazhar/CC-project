@@ -68,6 +68,7 @@
 
 %left '+' '-' '*' '/' '<' '>' tok_LE tok_GE tok_EQ tok_NEQ tok_AddOne tok_SubOne
 
+%type <integer_literal> opt_step
 %type <ast_node> statement expression term
 %type <ast_node> if_stmt for_stmt while_stmt repeat_stmt
 %type <ast_node> procedure_stmt function_stmt func_call_stmt return_stmt declaration
@@ -242,38 +243,32 @@ if_stmt:
 ;
 
 for_stmt:
-    tok_For assignment tok_To expression statement_block tok_Next tok_Identifier {
-        if (strcmp($7, $2->identifier->name.c_str()) != 0) {
+    tok_For assignment tok_To expression opt_step statement_block tok_Next tok_Identifier {
+        if (strcmp($8, $2->identifier->name.c_str()) != 0) {
             yyerror("Loop variable mismatch");
             YYERROR;
         }
 
         auto loopVar = $2->identifier;
-        auto cond = new ComparisonAST( loopVar, $4,"<="); // 4 is '<='
+        auto cond = new ComparisonAST(loopVar, $4, "<=");
 
-        // increment: x + 1
-        auto binaryOp = new BinaryOpAST(loopVar, new IntegerLiteralAST(1), "+");
-        auto incrementAssign = new AssignmentAST($2->identifier, binaryOp, nullptr);
-        $$ = new ForAST($2, cond, incrementAssign, $5);
-        free($7);
-    }
+        // Determine step size
+        auto step = $5 ? new IntegerLiteralAST($5) : new IntegerLiteralAST(1);
 
-    | tok_For assignment tok_To expression tok_Step tok_Integer_Literal statement_block tok_Next tok_Identifier {
-        if (strcmp($9, $2->identifier->name.c_str()) != 0) {
-            yyerror("Loop variable mismatch");
-            YYERROR;
-        }
-        // Create step increment using the integer literal
-        auto loopVar = $2->identifier;
-        auto cond = new ComparisonAST( loopVar, $4,"<="); // 4 is '<='
-        auto binaryOp = new BinaryOpAST(loopVar, new IntegerLiteralAST($6) , "+");
-        auto incrementAssign = new AssignmentAST($2->identifier, binaryOp, nullptr);
+        auto binaryOp = new BinaryOpAST(loopVar, step, "+");
+        auto incrementAssign = new AssignmentAST(loopVar, binaryOp, nullptr);
 
-
-        $$ = new ForAST($2,cond, incrementAssign, $7);
-        free($9);
+        $$ = new ForAST($2, cond, incrementAssign, $6);
+        free($8);
     }
 ;
+
+// handle optional "STEP"
+opt_step:
+    tok_Step tok_Integer_Literal { $$ = $2; }
+    | /* empty */ { $$ = 0; }
+;
+
 
 while_stmt:
     tok_While comparison statement_block tok_End_While {
