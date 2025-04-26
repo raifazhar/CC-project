@@ -55,12 +55,10 @@ const std::unordered_map<std::string, TypeAST::TypeGenerator> TypeAST::typeMap =
          return llvm::PointerType::getUnqual(llvm::Type::getInt8Ty(ctx)); // or however you represent it
      }},
 };
-
 Value *IdentifierAST::codegen()
 {
     DEBUG_PRINT_FUNCTION();
     Value *ptr = globalSymbolTable->lookupSymbol(name);
-
     if (!ptr)
     {
         errs() << "Error: Symbol not found for " << name << "\n";
@@ -69,28 +67,22 @@ Value *IdentifierAST::codegen()
 
     if (isa<AllocaInst>(ptr))
     {
-        // Case 1: The pointer is an AllocaInst (local variable)
         auto *allocaInst = dyn_cast<AllocaInst>(ptr);
         Type *elementType = allocaInst->getAllocatedType();
-        Value *loadedValue = builder.CreateLoad(elementType, ptr, "loaded_identifier");
-        return loadedValue;
+        return builder.CreateLoad(elementType, ptr, "loaded_" + name);
     }
     else if (isa<GlobalVariable>(ptr))
     {
-        // Case 2: The pointer is a GlobalVariable (global variable)
         auto *globalVar = dyn_cast<GlobalVariable>(ptr);
         Type *elementType = globalVar->getValueType();
-        Value *loadedValue = builder.CreateLoad(elementType, ptr, "loaded_global");
-        return loadedValue;
+        return builder.CreateLoad(elementType, ptr, "loaded_" + name);
     }
     else if (isa<Argument>(ptr))
     {
-        // Case 3: The pointer is an Argument (function parameter)
         return ptr;
     }
     else
     {
-        // Handle unexpected cases
         errs() << "Unexpected pointer type for " << name << "\n";
         return nullptr;
     }
@@ -100,19 +92,19 @@ Value *AssignmentAST::codegen()
 {
     DEBUG_PRINT_FUNCTION();
 
-    // 1. Get the variable from the symbol table
-    Value *var = globalSymbolTable->lookupSymbol(identifier);
-    if (!var)
+    // 1. Look up the variable pointer (not load its value)
+    Value *varPtr = globalSymbolTable->lookupSymbol(identifier->name);
+    if (!varPtr)
     {
-        llvm::errs() << "Unknown variable: " << identifier << "\n";
+        llvm::errs() << "Unknown variable: " << identifier->name << "\n";
         return nullptr;
     }
 
     // 2. Get the type of the variable from the symbol table
-    llvm::Type *varType = globalSymbolTable->getSymbolType(identifier);
+    llvm::Type *varType = globalSymbolTable->getSymbolType(identifier->name);
     if (!varType)
     {
-        llvm::errs() << "Failed to get type for variable: " << identifier << "\n";
+        llvm::errs() << "Failed to get type for variable: " << identifier->name << "\n";
         return nullptr;
     }
 
@@ -123,23 +115,16 @@ Value *AssignmentAST::codegen()
         return nullptr;
     }
 
-    // 4. Type check: Compare the type of the variable with the type of the value being assigned
+    // 4. Type check
     llvm::Type *valType = val->getType();
-    llvm::errs() << "Variable type: " << *varType << " Value type: " << *valType << "\n";
-
-    // If the types don't match, report an error
     if (varType->getTypeID() != valType->getTypeID())
     {
         llvm::outs() << "Type mismatch: Cannot assign " << *valType << " to " << *varType << "\n";
         return nullptr;
     }
 
-    // 5. Debug output to check types (optional, for debugging purposes)
-    llvm::errs() << "Variable type: " << *varType << "\n";
-    llvm::errs() << "Value type: " << *valType << "\n";
-
-    // 6. Store the value in the variable
-    builder.CreateStore(val, var);
+    // 5. Store the value in the variable pointer
+    builder.CreateStore(val, varPtr);
 
     return val;
 }
@@ -438,8 +423,6 @@ Value *StatementBlockAST::codegen()
     }
     return lastValue;
 }
-
-
 
 Value *ReturnAST::codegen()
 {

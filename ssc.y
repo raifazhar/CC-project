@@ -180,7 +180,7 @@ declaration:
 
 assignment:
     tok_Identifier '=' expression {
-        $$ = new AssignmentAST(std::string($1), $3); free($1);
+        $$ = new AssignmentAST(new IdentifierAST(std::string($1)), $3); free($1);
     }
 ;
 
@@ -243,12 +243,12 @@ if_stmt:
 
 for_stmt:
     tok_For assignment tok_To expression statement_block tok_Next tok_Identifier {
-        if (strcmp($7, $2->identifier.c_str()) != 0) {
+        if (strcmp($7, $2->identifier->name.c_str()) != 0) {
             yyerror("Loop variable mismatch");
             YYERROR;
         }
 
-        auto loopVar = new IdentifierAST($2->identifier);
+        auto loopVar = $2->identifier;
         auto cond = new ComparisonAST( loopVar, $4,"<="); // 4 is '<='
 
         // increment: x + 1
@@ -259,12 +259,12 @@ for_stmt:
     }
 
     | tok_For assignment tok_To expression tok_Step tok_Integer_Literal statement_block tok_Next tok_Identifier {
-        if (strcmp($9, $2->identifier.c_str()) != 0) {
+        if (strcmp($9, $2->identifier->name.c_str()) != 0) {
             yyerror("Loop variable mismatch");
             YYERROR;
         }
         // Create step increment using the integer literal
-        auto loopVar = new IdentifierAST($2->identifier);
+        auto loopVar = $2->identifier;
         auto cond = new ComparisonAST( loopVar, $4,"<="); // 4 is '<='
         auto binaryOp = new BinaryOpAST(loopVar, new IntegerLiteralAST($6) , "+");
         auto incrementAssign = new AssignmentAST($2->identifier, binaryOp, nullptr);

@@ -126,11 +126,11 @@ public:
 class AssignmentAST : public ASTNode
 {
 public:
-    std::string identifier;
+    IdentifierAST *identifier;
     ASTNode *expression;
     TypeAST *declaredType;
 
-    AssignmentAST(const std::string &id, ASTNode *expr, TypeAST *type = nullptr)
+    AssignmentAST(IdentifierAST *id, ASTNode *expr, TypeAST *type = nullptr)
         : identifier(id), expression(expr), declaredType(type) {}
     Value *codegen() override;
 };
@@ -287,4 +287,4 @@ public:
     Value *codegen() override;
 };
 
-#endif //AST_H
+#endif // AST_H
