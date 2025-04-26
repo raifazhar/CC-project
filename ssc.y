@@ -47,7 +47,6 @@
 %token <boolean_literal> tok_Bool_Literal  
 %token <date_literal> tok_Date_Literal
 
-%token tok_Printd tok_Prints
 %token tok_Declare
 %token tok_If tok_Else tok_End_If
 %token tok_While tok_End_While
