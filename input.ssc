@@ -1,6 +1,5 @@
-FUNCTION foo(INTEGER u , STRING z) RETURNS INTEGER
-    DECLARE x:STRING
-    x=z
-    RETURN u
-ENDFUNCTION
-CALL foo(1,"hi")
+DECLARE x : INTEGER
+x=3
+DECLARE y : REAL
+y=300.1231
+OUTPUT "hi " , x ," nigga", y 

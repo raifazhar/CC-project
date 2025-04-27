@@ -145,6 +145,18 @@ public:
     Value *codegen() override;
 };
 
+class OutputAST : public ASTNode
+{
+public:
+    std::vector<ASTNode *> expressions;
+
+    // Constructor takes a vector
+    OutputAST(std::vector<ASTNode *> expressions)
+        : expressions(std::move(expressions)) {}
+
+    Value *codegen() override;
+};
+
 // --- Expressions ---
 class BinaryOpAST : public ASTNode
 {

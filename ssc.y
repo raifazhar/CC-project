@@ -32,9 +32,9 @@
     TypeAST* type_node;
     ComparisonAST* comparison_ast;
     AssignmentAST* assignment_ast;
-    BinaryOpAST* binary_ast;
     RealLiteralAST* real_ast;
     std::vector<ASTNode*>* stmt_list;
+    std::vector<OutputAST*>* output_list;
     std::vector<ParameterAST*>* param_list;
     StatementBlockAST* statement_block_ast;
 }
@@ -48,6 +48,7 @@
 %token <date_literal> tok_Date_Literal
 
 %token tok_Declare
+%token tok_Output
 %token tok_If tok_Else tok_End_If
 %token tok_While tok_End_While
 %token tok_Repeat tok_Until
@@ -66,14 +67,14 @@
 %token tok_GE ">="
 
 %left '+' '-' '*' '/' '<' '>' tok_LE tok_GE tok_EQ tok_NEQ tok_AddOne tok_SubOne
+%right UMINUS
 
 %type <integer_literal> opt_step
 %type <ast_node> statement expression term
-%type <ast_node> if_stmt for_stmt while_stmt repeat_stmt
+%type <ast_node> if_stmt for_stmt while_stmt repeat_stmt output
 %type <ast_node> procedure_stmt function_stmt func_call_stmt return_stmt declaration
 %type <comparison_ast> comparison
-%type <assignment_ast> assignment
-%type <binary_ast> binary_operation
+%type <assignment_ast> assignment 
 %type <type_node> type
 %type <stmt_list> statements statement_line argument_list
 %type <param_list> parameter_list
@@ -149,6 +150,7 @@ statement_line:
 statement:
       assignment { fprintf(stderr, "DEBUG: Processing assignment statement\n"); $$ = $1; }
     | expression { fprintf(stderr, "DEBUG: Processing expression statement\n"); $$ = $1; }
+    | output {fprintf(stderr, "DEBUG: Processing output statement\n"); $$ = $1; }
     | if_stmt { fprintf(stderr, "DEBUG: Processing if statement\n"); $$ = $1; }
     | for_stmt { fprintf(stderr, "DEBUG: Processing for statement\n"); $$ = $1; }
     | while_stmt { fprintf(stderr, "DEBUG: Processing while statement\n"); $$ = $1; }
@@ -187,9 +189,9 @@ assignment:
 term:
       tok_Identifier { $$ = new IdentifierAST(std::string($1)); free($1); }
     | tok_Integer_Literal { $$ = new IntegerLiteralAST($1); }
-    | '-' tok_Integer_Literal { $$ = new IntegerLiteralAST(-$2); }
-    | tok_Real_Literal { $$ = new RealLiteralAST(-$1); }
-    | '-' tok_Real_Literal { $$ = new RealLiteralAST($2); }
+    | '-' tok_Integer_Literal %prec UMINUS { $$ = new IntegerLiteralAST(-$2); }
+    | tok_Real_Literal { $$ = new RealLiteralAST($1); }
+    | '-' tok_Real_Literal %prec UMINUS { $$ = new RealLiteralAST(-$2); } 
     | tok_String_Literal { $$ = new StringLiteralAST(std::string($1)); free($1); }
     | tok_Bool_Literal { $$ = new BooleanLiteralAST($1); }
     | tok_Char_Literal { $$ = new CharLiteralAST($1); }
@@ -197,10 +199,40 @@ term:
 ;
 
 
+output:
+    tok_Output expression {
+        // Single expression: create OutputAST
+        auto outputs = std::vector<ASTNode*>();
+        outputs.push_back($2);
+        $$ = new OutputAST(outputs);
+    }
+    | output ',' expression {
+        // Add expression to existing OutputAST
+        auto outputAST = dynamic_cast<OutputAST*>($1);
+        if (outputAST) {
+            outputAST->expressions.push_back($3);
+            $$ = outputAST;
+        } else {
+            // Should not happen, but safety fallback
+            auto outputs = std::vector<ASTNode*>();
+            outputs.push_back($3);
+            $$ = new OutputAST(outputs);
+        }
+    }
+;
+
+
+
 expression:
       term { $$ = $1; }
-    | binary_operation { $$ = $1; }
+    | expression tok_AddOne { $$ = new BinaryOpAST($1, nullptr, "++"); }
+    | expression tok_SubOne { $$ = new BinaryOpAST($1, nullptr, "--"); }
+    | expression '+' expression { $$ = new BinaryOpAST($1, $3, "+"); }
+    | expression '-' expression { $$ = new BinaryOpAST($1, $3, "-"); }
+    | expression '*' expression { $$ = new BinaryOpAST($1, $3, "*"); }
+    | expression '/' expression { $$ = new BinaryOpAST($1, $3, "/"); }
 ;
+
 
 comparison:
       expression '>' expression { $$ = new ComparisonAST( $1, $3, ">"); }
@@ -209,15 +241,6 @@ comparison:
     | expression tok_LE expression { $$ = new ComparisonAST($1, $3,"<="); }
     | expression tok_GE expression { $$ = new ComparisonAST($1, $3,">="); }
     | expression tok_NEQ expression { $$ = new ComparisonAST( $1, $3,"!="); }
-;
-
-binary_operation:
-      expression tok_AddOne { $$ = new BinaryOpAST($1, nullptr, "++"); }
-    | expression tok_SubOne { $$ = new BinaryOpAST($1, nullptr, "--"); }
-    | expression '+' expression { $$ = new BinaryOpAST($1, $3, "+"); }
-    | expression '-' expression { $$ = new BinaryOpAST($1, $3, "-"); }
-    | expression '*' expression { $$ = new BinaryOpAST($1, $3, "*"); }
-    | expression '/' expression { $$ = new BinaryOpAST($1, $3, "/"); }
 ;
 
 statement_block: 
