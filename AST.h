@@ -123,6 +123,16 @@ public:
     Value *codegen() override;
 };
 
+class DeclarationAST : public ASTNode
+{
+public:
+    IdentifierAST *identifier;
+    TypeAST *type;
+
+    DeclarationAST(IdentifierAST *id, TypeAST *t)
+        : identifier(id), type(t) {}
+    Value *codegen() override;
+};
 class AssignmentAST : public ASTNode
 {
 public:
@@ -229,39 +239,51 @@ public:
     Value *codegen() override;
 };
 
-class ReturnAST : public ASTNode
+// --- Functions and Procedures ---
+class ParameterAST : public ASTNode
 {
 public:
-    ASTNode *expression;
-    ReturnAST(ASTNode *expr) : expression(expr) {}
-    Value *codegen() override;
+    TypeAST *type;    // like "INTEGER", "REAL", etc.
+    std::string name; // variable name
+
+    ParameterAST(TypeAST *type, const std::string &name)
+        : type(type), name(name) {}
+
+    Value *codegen() override
+    {
+        return nullptr;
+    }
 };
 
-// --- Functions and Procedures ---
 class ProcedureAST : public ASTNode
 {
 public:
-    std::string name;
-    std::vector<std::string> parameters;
-    std::vector<ASTNode *> statementsBlock;
+    IdentifierAST *Identifier;
+    std::vector<ParameterAST *> parameters;
+    StatementBlockAST *statementsBlock;
 
-    ProcedureAST(const std::string &procName, const std::vector<std::string> &params,
-                 const std::vector<ASTNode *> &stmtBlock)
-        : name(procName), parameters(params), statementsBlock(stmtBlock) {}
+    ProcedureAST(IdentifierAST *procidentifier, const std::vector<ParameterAST *> &params, StatementBlockAST *stmtBlock)
+        : Identifier(procidentifier), parameters(params), statementsBlock(stmtBlock) {}
     Value *codegen() override;
 };
 
 class FuncAST : public ASTNode
 {
 public:
-    std::string name;
-    std::vector<std::string> parameters;
-    std::vector<ASTNode *> statementsBlock;
+    IdentifierAST *Identifier;
+    std::vector<ParameterAST *> parameters;
+    StatementBlockAST *statementsBlock;
     TypeAST *returnType;
 
-    FuncAST(const std::string &n, const std::vector<std::string> &params,
-            const std::vector<ASTNode *> &block, TypeAST *retType)
-        : name(n), parameters(params), statementsBlock(block), returnType(retType) {}
+    FuncAST(IdentifierAST *funcidentifier, const std::vector<ParameterAST *> &params, StatementBlockAST *block, TypeAST *retType)
+        : Identifier(funcidentifier), parameters(params), statementsBlock(block), returnType(retType) {}
+    Value *codegen() override;
+};
+class ReturnAST : public ASTNode
+{
+public:
+    ASTNode *expression;
+    ReturnAST(ASTNode *expr) : expression(expr) {}
     Value *codegen() override;
 };
 
@@ -275,16 +297,4 @@ public:
         : name(funcName), arguments(args) {}
     Value *codegen() override;
 };
-
-class DeclarationAST : public ASTNode
-{
-public:
-    IdentifierAST *identifier;
-    TypeAST *type;
-
-    DeclarationAST(IdentifierAST *id, TypeAST *t)
-        : identifier(id), type(t) {}
-    Value *codegen() override;
-};
-
 #endif // AST_H

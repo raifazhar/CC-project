@@ -88,6 +88,23 @@ Value *IdentifierAST::codegen()
     }
 }
 
+Value *DeclarationAST::codegen()
+{
+    DEBUG_PRINT_FUNCTION();
+    llvm::errs() << "Generating code for declaration: " << identifier->name << " of type " << type->type << "\n";
+
+    // Get the default value for this type (e.g., 0 for integer types)
+    CodegenContext ctx(context, module, builder, builder.GetInsertBlock()->getParent());
+    llvm::Type *varType = TypeAST::typeMap.at(type->type)(context);
+
+    AllocaInst *alloca = builder.CreateAlloca(varType, nullptr, identifier->name);
+
+    globalSymbolTable->setSymbol(identifier->name, alloca, varType);
+
+    llvm::errs() << "Declaration codegen completed for: " << identifier->name << "\n";
+    return alloca;
+}
+
 Value *AssignmentAST::codegen()
 {
     DEBUG_PRINT_FUNCTION();
@@ -160,6 +177,7 @@ Value *ComparisonAST::codegen_single()
 
 Value *IfAST::codegen()
 {
+    globalSymbolTable->enterScope();
     Value *condVal = condition->codegen();
     Function *function = builder.GetInsertBlock()->getParent();
     BasicBlock *thenBB = BasicBlock::Create(context, "if.then", function);
@@ -182,13 +200,14 @@ Value *IfAST::codegen()
     builder.CreateBr(mergeBB);
 
     builder.SetInsertPoint(mergeBB);
+    globalSymbolTable->exitScope();
     return nullptr;
 }
 
 Value *ForAST::codegen()
 {
     DEBUG_PRINT_FUNCTION();
-
+    globalSymbolTable->enterScope();
     Function *function = builder.GetInsertBlock()->getParent();
 
     // Create basic blocks
@@ -219,6 +238,7 @@ Value *ForAST::codegen()
 
     // After loop
     builder.SetInsertPoint(afterBB);
+    globalSymbolTable->exitScope();
     return nullptr;
 }
 
@@ -281,34 +301,41 @@ Value *RepeatAST::codegen()
 Value *ProcedureAST::codegen()
 {
     DEBUG_PRINT_FUNCTION();
-    std::vector<Type *> paramTypes(parameters.size(), Type::getDoubleTy(context));
-    FunctionType *funcType = FunctionType::get(Type::getVoidTy(context), paramTypes, false);
+    globalSymbolTable->enterScope();
+    // Create the function type based on parameters
+    std::vector<Type *> paramTypes;
+    for (auto &param : parameters)
+        paramTypes.push_back(TypeAST::typeMap.at(param->type->type)(context));
 
-    Function *function = Function::Create(funcType, Function::ExternalLinkage, name, *module);
+    FunctionType *funcType = FunctionType::get(Type::getVoidTy(context), paramTypes, false);
+    Function *function = Function::Create(funcType, Function::ExternalLinkage, Identifier->name, *module);
 
     BasicBlock *prevInsertBlock = builder.GetInsertBlock();
+    // Create the entry block for the function
     BasicBlock *entryBB = BasicBlock::Create(context, "entry", function);
     builder.SetInsertPoint(entryBB);
 
+    // Allocate space for each parameter and store it
     auto argIt = function->arg_begin();
-    for (size_t i = 0; i < parameters.size(); ++i)
+    for (auto &param : parameters)
     {
         Value *paramVal = &*argIt;
-        paramVal->setName(parameters[i]);
+        paramVal->setName(param->name);
 
-        AllocaInst *alloca = builder.CreateAlloca(builder.getDoubleTy(), nullptr, parameters[i]);
+        llvm::Type *varType = TypeAST::typeMap.at(param->type->type)(context);
+        AllocaInst *alloca = builder.CreateAlloca(varType, nullptr, param->name);
         builder.CreateStore(paramVal, alloca);
-        globalSymbolTable->setSymbol(parameters[i], alloca, builder.getDoubleTy());
+        globalSymbolTable->setSymbol(param->name, alloca, varType);
 
         ++argIt;
     }
 
-    for (auto *stmt : statementsBlock)
-    {
-        stmt->codegen();
-    }
+    // Generate code for the statements in the block
+    statementsBlock->codegen();
 
+    // Return void
     builder.CreateRetVoid();
+    globalSymbolTable->enterScope();
     builder.SetInsertPoint(prevInsertBlock);
     return function;
 }
@@ -316,42 +343,51 @@ Value *ProcedureAST::codegen()
 Value *FuncAST::codegen()
 {
     DEBUG_PRINT_FUNCTION();
-    std::vector<Type *> paramTypes(parameters.size(), Type::getDoubleTy(context));
-    Type *returnType = Type::getDoubleTy(context); // Functions return double by default
-    FunctionType *funcType = FunctionType::get(returnType, paramTypes, false);
+    globalSymbolTable->enterScope();
+    // Create the function type based on parameters
+    std::vector<Type *> paramTypes;
+    for (auto &param : parameters)
+        paramTypes.push_back(TypeAST::typeMap.at(param->type->type)(context));
 
-    Function *function = Function::Create(funcType, Function::ExternalLinkage, name, *module);
+    llvm::Type *FuncType = TypeAST::typeMap.at(returnType->type)(context);
+    FunctionType *funcType = FunctionType::get(FuncType, paramTypes, false);
+    Function *function = Function::Create(funcType, Function::ExternalLinkage, Identifier->name, *module);
 
     BasicBlock *prevInsertBlock = builder.GetInsertBlock();
+    // Create the entry block for the function
     BasicBlock *entryBB = BasicBlock::Create(context, "entry", function);
     builder.SetInsertPoint(entryBB);
 
+    // Allocate space for each parameter and store it
     auto argIt = function->arg_begin();
-    for (size_t i = 0; i < parameters.size(); ++i)
+    for (auto &param : parameters)
     {
         Value *paramVal = &*argIt;
-        paramVal->setName(parameters[i]);
+        paramVal->setName(param->name);
 
-        AllocaInst *alloca = builder.CreateAlloca(builder.getDoubleTy(), nullptr, parameters[i]);
+        llvm::Type *varType = TypeAST::typeMap.at(param->type->type)(context);
+        AllocaInst *alloca = builder.CreateAlloca(varType, nullptr, param->name);
         builder.CreateStore(paramVal, alloca);
-        globalSymbolTable->setSymbol(parameters[i], alloca, builder.getDoubleTy());
+        globalSymbolTable->setSymbol(param->name, alloca, varType);
 
         ++argIt;
     }
 
-    Value *returnValue = nullptr;
-    for (auto *stmt : statementsBlock)
-    {
-        returnValue = stmt->codegen();
-    }
+    // Generate code for the statements in the block
+    statementsBlock->codegen();
 
-    if (!returnValue)
-    {
-        returnValue = ConstantFP::get(Type::getDoubleTy(context), 0.0);
-    }
-    builder.CreateRet(returnValue);
+    // Return void
+    globalSymbolTable->enterScope();
     builder.SetInsertPoint(prevInsertBlock);
     return function;
+}
+
+Value *ReturnAST::codegen()
+{
+    DEBUG_PRINT_FUNCTION();
+    Value *returnValue = expression->codegen();
+    builder.CreateRet(returnValue);
+    return returnValue;
 }
 
 Value *FuncCallAST::codegen()
@@ -370,23 +406,6 @@ Value *FuncCallAST::codegen()
     }
 
     return builder.CreateCall(callee, args);
-}
-
-Value *DeclarationAST::codegen()
-{
-    DEBUG_PRINT_FUNCTION();
-    llvm::errs() << "Generating code for declaration: " << identifier->name << " of type " << type->type << "\n";
-
-    // Get the default value for this type (e.g., 0 for integer types)
-    CodegenContext ctx(context, module, builder, builder.GetInsertBlock()->getParent());
-    llvm::Type *varType = TypeAST::typeMap.at(type->type)(context);
-
-    AllocaInst *alloca = builder.CreateAlloca(varType, nullptr, identifier->name);
-
-    globalSymbolTable->setSymbol(identifier->name, alloca, varType);
-
-    llvm::errs() << "Declaration codegen completed for: " << identifier->name << "\n";
-    return alloca;
 }
 
 Value *LogicalOpAST::codegen()
@@ -422,12 +441,4 @@ Value *StatementBlockAST::codegen()
         }
     }
     return lastValue;
-}
-
-Value *ReturnAST::codegen()
-{
-    DEBUG_PRINT_FUNCTION();
-    Value *returnValue = expression->codegen();
-    builder.CreateRet(returnValue);
-    return returnValue;
 }

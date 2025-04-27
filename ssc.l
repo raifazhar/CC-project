@@ -133,8 +133,6 @@ void debug_indent(int spaces, const char* action) {
 <normal>"FALSE"                { debug_token("FALSE", yytext); yylval.boolean_literal = false; return tok_Bool_Literal; }
 
 <normal>"DECLARE"              { debug_token("DECLARE", yytext); return tok_Declare; }
-<normal>"printd"               { debug_token("PRINTD", yytext); return tok_Printd; }
-<normal>"prints"               { debug_token("PRINTS", yytext); return tok_Prints; }
 <normal>"IF"                   { debug_token("IF", yytext); return tok_If; }
 <normal>"ELSE"                 { debug_token("ELSE", yytext); return tok_Else; }
 <normal>"ENDIF"                { debug_token("ENDIF", yytext); return tok_End_If; }

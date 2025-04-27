@@ -35,7 +35,7 @@
     BinaryOpAST* binary_ast;
     RealLiteralAST* real_ast;
     std::vector<ASTNode*>* stmt_list;
-    std::vector<std::string>* param_list;
+    std::vector<ParameterAST*>* param_list;
     StatementBlockAST* statement_block_ast;
 }
 
@@ -238,7 +238,7 @@ if_stmt:
     tok_If comparison statement_block tok_End_If {
         $$ = new IfAST($2, $3, {});
     }
-    | tok_If comparison statement_block tok_Else statement_block tok_Dedent tok_End_If {
+    | tok_If comparison statement_block tok_Else statement_block tok_End_If {
         $$ = new IfAST($2, $3, $5);
     }
 ;
@@ -287,22 +287,22 @@ repeat_stmt:
 ;
 
 parameter_list:
-      tok_Identifier {
-          $$ = new std::vector<std::string>();
-          $$->push_back(std::string($1));
+      type tok_Identifier {
+          $$ = new std::vector<ParameterAST *>();
+          $$->push_back(new ParameterAST($1, std::string($2)));
       }
-    | parameter_list ',' tok_Identifier {
+    | parameter_list ',' type tok_Identifier {
           $$ = $1;
-          $$->push_back(std::string($3));
+          $$->push_back(new ParameterAST($3, std::string($4)));
       }
     | /* empty */ {
-          $$ = new std::vector<std::string>();
+          $$ = new std::vector<ParameterAST *>();
       }
 ;
 
 procedure_stmt:
     tok_Procedure tok_Identifier '(' parameter_list ')' statement_block tok_End_Procedure {
-        $$ = new ProcedureAST(std::string($2), *$4, $6->statements);
+        $$ = new ProcedureAST(new IdentifierAST($2), *$4, $6);
         free($2);
     }
 ;
@@ -310,7 +310,7 @@ procedure_stmt:
 function_stmt:
    tok_Function tok_Identifier '(' parameter_list ')' tok_Returns type statement_block tok_End_Function 
     { 
-        $$ = new FuncAST(std::string($2), *$4, $8->statements, $7);
+        $$ = new FuncAST(new IdentifierAST($2), *$4, $8, $7);
         free($2);
     }
 ;
