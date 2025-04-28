@@ -218,7 +218,7 @@ output:
 ;
 
 input:
-    tok_Input tok_Identifier { errs()<<"nigga\n"; }
+    tok_Input tok_Identifier { errs()<<"nigga\n"; $$= new InputAST(new IdentifierAST($2));}
 ;
 
 

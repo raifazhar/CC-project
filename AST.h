@@ -164,10 +164,7 @@ public:
 
     InputAST(IdentifierAST *id)
         : Identifier(id) {}
-    Value *codegen() override
-    {
-        return nullptr;
-    }
+    Value *codegen() override;
 };
 
 // --- Expressions ---

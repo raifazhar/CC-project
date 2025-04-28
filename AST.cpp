@@ -219,47 +219,47 @@ Value *OutputAST::codegen()
     CallInst *call = builder.CreateCall(printfFunc, args);
     return call;
 }
-// Value *InputAST::codegen()
-// {
-//     // if (!builder.GetInsertBlock())
-//     // {
-//     //     BasicBlock &entry = mainFunction->getEntryBlock();
-//     //     builder.SetInsertPoint(&entry, entry.end());
-//     // }
+Value *InputAST::codegen()
+{
+    if (!builder.GetInsertBlock())
+    {
+        BasicBlock &entry = mainFunction->getEntryBlock();
+        builder.SetInsertPoint(&entry, entry.end());
+    }
 
-//     // Value *varPtr = globalSymbolTable->lookupSymbol(Identifier->name);
-//     // Type *varType = globalSymbolTable->getSymbolType(Identifier->name);
+    Value *varPtr = globalSymbolTable->lookupSymbol(Identifier->name);
+    Type *varType = globalSymbolTable->getSymbolType(Identifier->name);
 
-//     // if (!varPtr || !varType)
-//     // {
-//     //     errs() << "Error: undeclared variable '" << Identifier->name << "'\n";
-//     //     return nullptr;
-//     // }
+    if (!varPtr || !varType)
+    {
+        errs() << "Error: undeclared variable '" << Identifier->name << "'\n";
+        return nullptr;
+    }
 
-//     // FunctionCallee scanfFunc = module->getOrInsertFunction(
-//     //     "scanf",
-//     //     FunctionType::get(
-//     //         builder.getInt32Ty(),
-//     //         PointerType::getUnqual(builder.getInt8Ty()),
-//     //         true));
+    FunctionCallee scanfFunc = module->getOrInsertFunction(
+        "scanf",
+        FunctionType::get(
+            builder.getInt32Ty(),
+            PointerType::getUnqual(builder.getInt8Ty()),
+            true));
 
-//     // std::string fmt;
-//     // if (varType->isIntegerTy(32))
-//     //     fmt = "%d";
-//     // else if (varType->isDoubleTy())
-//     //     fmt = "%lf";
-//     // else
-//     // {
-//     //     errs() << "Error: unsupported input type for '" << Identifier->name << "'\n";
-//     //     return nullptr;
-//     // }
+    std::string fmt;
+    if (varType->isIntegerTy(32))
+        fmt = "%d";
+    else if (varType->isDoubleTy())
+        fmt = "%lf";
+    else
+    {
+        errs() << "Error: unsupported input type for '" << Identifier->name << "'\n";
+        return nullptr;
+    }
 
-//     // Value *fmtPtr = builder.CreateGlobalStringPtr(fmt, ".fmt_" + Identifier->name);
+    Value *fmtPtr = builder.CreateGlobalStringPtr(fmt, ".fmt_" + Identifier->name);
 
-//     // builder.CreateCall(scanfFunc, {fmtPtr, varPtr});
+    builder.CreateCall(scanfFunc, {fmtPtr, varPtr});
 
-//     return nullptr;
-// }
+    return nullptr;
+}
 
 Value *BinaryOpAST::codegen()
 {
