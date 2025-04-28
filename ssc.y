@@ -33,6 +33,7 @@
     ComparisonAST* comparison_ast;
     AssignmentAST* assignment_ast;
     RealLiteralAST* real_ast;
+    InputAST* input_ast;
     std::vector<ASTNode*>* stmt_list;
     std::vector<OutputAST*>* output_list;
     std::vector<ParameterAST*>* param_list;
@@ -48,7 +49,7 @@
 %token <date_literal> tok_Date_Literal
 
 %token tok_Declare
-%token tok_Output
+%token tok_Output tok_Input
 %token tok_If tok_Else tok_End_If
 %token tok_While tok_End_While
 %token tok_Repeat tok_Until
@@ -67,6 +68,7 @@
 %token tok_GE ">="
 
 %left '+' '-' '*' '/' '<' '>' tok_LE tok_GE tok_EQ tok_NEQ tok_AddOne tok_SubOne
+%left tok_Newline
 %right UMINUS
 
 %type <integer_literal> opt_step
@@ -75,8 +77,9 @@
 %type <ast_node> procedure_stmt function_stmt func_call_stmt return_stmt declaration
 %type <comparison_ast> comparison
 %type <assignment_ast> assignment 
+%type <input_ast> input
 %type <type_node> type
-%type <stmt_list> statements statement_line argument_list
+%type <stmt_list> statements argument_list
 %type <param_list> parameter_list
 %type <statement_block_ast> statement_block
 
@@ -110,47 +113,40 @@ root:
     }
 ;
 
-statements:
-    statement_line { 
-        fprintf(stderr, "DEBUG: Creating new statements list with single statement_line\n"); 
-        $$ = $1; 
-    }
-    | statements statement_line {
-        fprintf(stderr, "DEBUG: Appending statement_line to existing statements list\n");
-        fprintf(stderr, "DEBUG: Current statements size: %zu\n", $1->size());
-        $$ = $1;
-        $$->insert($$->end(), $2->begin(), $2->end());
-        fprintf(stderr, "DEBUG: New statements size after append: %zu\n", $$->size());
-        delete $2;
-    }
-;
 
-statement_line:
-    statement tok_Newline {
-        fprintf(stderr, "DEBUG: Creating statement_line with statement type: %s\n", typeid(*$1).name());
+statements:
+    statements newline statement {
+        fprintf(stderr, "DEBUG: Creating statement_line with statement type: %s\n", typeid(*$3).name());
         fprintf(stderr, "DEBUG: Statement at line %d\n", yylineno);
-        $$ = new std::vector<ASTNode*>();
-        if ($1) {
+        
+        $$ = $1; // No need to create a new vector here
+        if ($3) {
             fprintf(stderr, "DEBUG: Valid statement found, adding to vector\n");
-            $$->push_back($1);
+            $$->push_back($3);  // Add the statement node to the existing list
         } else {
             fprintf(stderr, "DEBUG: Null statement encountered\n");
         }
     }
-    | statement {
+  | statement {
         fprintf(stderr, "DEBUG: Creating statement_line without newline\n");
-        $$ = new std::vector<ASTNode*>();
+        $$ = new std::vector<ASTNode*>();  // Create a new vector if $1 is a single statement
         if ($1) {
             fprintf(stderr, "DEBUG: Valid statement found, adding to vector\n");
-            $$->push_back($1);
+            $$->push_back($1);  // Add the single statement node
         }
     }
 ;
+newline:
+    tok_Newline
+  | newline tok_Newline
+;
+
 
 statement:
-      assignment { fprintf(stderr, "DEBUG: Processing assignment statement\n"); $$ = $1; }
-    | expression { fprintf(stderr, "DEBUG: Processing expression statement\n"); $$ = $1; }
+      assignment  { fprintf(stderr, "DEBUG: Processing assignment statement\n"); $$ = $1; }
+    | expression  { fprintf(stderr, "DEBUG: Processing expression statement\n"); $$ = $1; }
     | output {fprintf(stderr, "DEBUG: Processing output statement\n"); $$ = $1; }
+    | input  {fprintf(stderr, "DEBUG: Processing input statement\n"); $$ = $1; }
     | if_stmt { fprintf(stderr, "DEBUG: Processing if statement\n"); $$ = $1; }
     | for_stmt { fprintf(stderr, "DEBUG: Processing for statement\n"); $$ = $1; }
     | while_stmt { fprintf(stderr, "DEBUG: Processing while statement\n"); $$ = $1; }
@@ -161,6 +157,8 @@ statement:
     | declaration { fprintf(stderr, "DEBUG: Processing declaration statement\n"); $$ = $1; }
     | return_stmt { fprintf(stderr, "DEBUG: Processing return statement\n"); $$=$1; }
 ;
+
+
 
 
 type:
@@ -189,9 +187,7 @@ assignment:
 term:
       tok_Identifier { $$ = new IdentifierAST(std::string($1)); free($1); }
     | tok_Integer_Literal { $$ = new IntegerLiteralAST($1); }
-    | '-' tok_Integer_Literal %prec UMINUS { $$ = new IntegerLiteralAST(-$2); }
     | tok_Real_Literal { $$ = new RealLiteralAST($1); }
-    | '-' tok_Real_Literal %prec UMINUS { $$ = new RealLiteralAST(-$2); } 
     | tok_String_Literal { $$ = new StringLiteralAST(std::string($1)); free($1); }
     | tok_Bool_Literal { $$ = new BooleanLiteralAST($1); }
     | tok_Char_Literal { $$ = new CharLiteralAST($1); }
@@ -221,6 +217,9 @@ output:
     }
 ;
 
+input:
+    tok_Input tok_Identifier { errs()<<"nigga\n"; }
+;
 
 
 expression:
@@ -231,6 +230,7 @@ expression:
     | expression '-' expression { $$ = new BinaryOpAST($1, $3, "-"); }
     | expression '*' expression { $$ = new BinaryOpAST($1, $3, "*"); }
     | expression '/' expression { $$ = new BinaryOpAST($1, $3, "/"); }
+    | '-' expression      %prec UMINUS {$$= new UnaryOpAST($2,"-");}
 ;
 
 

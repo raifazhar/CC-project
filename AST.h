@@ -157,6 +157,19 @@ public:
     Value *codegen() override;
 };
 
+class InputAST : public ASTNode
+{
+public:
+    IdentifierAST *Identifier;
+
+    InputAST(IdentifierAST *id)
+        : Identifier(id) {}
+    Value *codegen() override
+    {
+        return nullptr;
+    }
+};
+
 // --- Expressions ---
 class BinaryOpAST : public ASTNode
 {
@@ -168,6 +181,32 @@ public:
     BinaryOpAST(ASTNode *lhs, ASTNode *rhs, std::string operation)
         : op(operation), expression1(lhs), expression2(rhs) {}
     Value *codegen() override;
+};
+
+class UnaryOpAST : public ASTNode
+{
+public:
+    ASTNode *expression;
+    std::string op;
+
+    UnaryOpAST(ASTNode *exp, std::string operation)
+        : expression(exp), op(operation) {}
+
+    Value *codegen() override
+    {
+        Value *v = expression->codegen();
+        if (!v)
+            return nullptr;
+        if (op == "-")
+        {
+            if (v->getType()->isIntegerTy())
+                return builder.CreateNeg(v, "negtmp");
+            else if (v->getType()->isDoubleTy())
+                return builder.CreateFNeg(v, "fnegtmp");
+        }
+        errs() << "Unknown unary op: " << op << "\n";
+        return nullptr;
+    }
 };
 
 class LogicalOpAST : public ASTNode

@@ -1,5 +1,2 @@
 DECLARE x : INTEGER
-x=3
-DECLARE y : REAL
-y=300.1231
-OUTPUT "hi " , x ," nigga", y 
+INPUT x

@@ -134,6 +134,7 @@ void debug_indent(int spaces, const char* action) {
 
 <normal>"DECLARE"              { debug_token("DECLARE", yytext); return tok_Declare; }
 <normal>"OUTPUT"              { debug_token("DECLARE", yytext); return tok_Output; }
+<normal>"INPUT"              { debug_token("DECLARE", yytext); return tok_Input; }
 <normal>"IF"                   { debug_token("IF", yytext); return tok_If; }
 <normal>"ELSE"                 { debug_token("ELSE", yytext); return tok_Else; }
 <normal>"ENDIF"                { debug_token("ENDIF", yytext); return tok_End_If; }
@@ -180,20 +181,7 @@ void debug_indent(int spaces, const char* action) {
 <normal>"!="                    { debug_token("NOT_EQUAL", yytext); return tok_NEQ; }
 <normal>"+"|"-"|"*"|"/"|"="|";"|"("|")"|">"|"<"|"{"|"}"|"!"|","|":" { debug_token("SYMBOL", yytext); return yytext[0]; }
 
-<normal>\n {
-    fprintf(stderr, "DEBUG: Newline detected\n");
-    debug_token("NEWLINE", "\\n");
-    current_indent = 0;  /* Reset indent counter */
-    start_of_line = true;  /* Reset start_of_line flag */
-    BEGIN(indent);
-    if (!dedent_buffer.empty()) {
-        int tok = dedent_buffer.front();
-        dedent_buffer.pop();
-        unput('\n');  /* Put back the newline for next time */
-        return tok;
-    }
-    return tok_Newline;
-}
+
 
 <normal>.                       { yyerror("Illegal lexeme"); exit(EXIT_FAILURE); }
 
