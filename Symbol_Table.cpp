@@ -20,7 +20,7 @@ void SymbolTable::exitScope()
     }
 }
 
-llvm::Value *SymbolTable::lookupSymbol(const std::string &id, llvm::Value *index)
+Value *SymbolTable::lookupSymbol(const std::string &id, llvm::Value *index)
 {
     auto scopes = SymbolTableStack;
     while (!scopes.empty())
@@ -36,13 +36,13 @@ llvm::Value *SymbolTable::lookupSymbol(const std::string &id, llvm::Value *index
 
             // If it's an array, compute GEP
             if (it->second.isArray)
-            {                
-                llvm::Value *zero = llvm::ConstantInt::get(builder.getInt32Ty(), 0);
-                llvm::Value *ptr = builder.CreateGEP(it->second.type, it->second.value, {zero, index});
-                
-                // Step 2: Load the value from the address
-                llvm::Type* elementType = it->second.type->getArrayElementType(); // e.g., i32
-                return builder.CreateLoad(elementType, ptr, id + "_val");
+            {
+                llvm::Value *ptr = builder.CreateGEP(
+                    it->second.type,  // base element type (i32)
+                    it->second.value, // base pointer
+                    index             // ONLY one index
+                );
+                return ptr;
             }
             else
             {
@@ -51,7 +51,6 @@ llvm::Value *SymbolTable::lookupSymbol(const std::string &id, llvm::Value *index
         }
         scopes.pop();
     }
-
     return nullptr; // Not found
 }
 
@@ -98,4 +97,3 @@ llvm::Value *SymbolTable::createNewSymbol(const std::string &id, llvm::Type *typ
 
     return alloca;
 }
-

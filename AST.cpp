@@ -189,9 +189,9 @@ Value *ArrayAssignmentAST::codegen()
     }
 
     // 4. Type check: Make sure the value matches the array element type
-    llvm::Type *expectedType = elementPtr->getType()->getArrayElementType(); // element type
+    llvm::Type *expectedType = globalSymbolTable->getSymbolType(identifier->name);
     llvm::Type *valType = val->getType();
-    if (expectedType != valType)
+    if (expectedType->getTypeID() != valType->getTypeID())
     {
         llvm::errs() << "Type mismatch: Cannot assign " << *valType << " to " << *expectedType << "\n";
         return nullptr;
@@ -202,7 +202,6 @@ Value *ArrayAssignmentAST::codegen()
 
     return val;
 }
-
 
 Value *OutputAST::codegen()
 {

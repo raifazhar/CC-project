@@ -163,11 +163,11 @@ class ArrayAssignmentAST : public ASTNode
 public:
     IdentifierAST *identifier;
     ASTNode *expression;
-    TypeAST *declaredType;
+    // TypeAST *declaredType;
     ASTNode *index;
 
-    ArrayAssignmentAST(IdentifierAST *id, ASTNode *expr, ASTNode *index, TypeAST *type = nullptr)
-        : identifier(id), expression(expr), index(index) ,declaredType(type) {}
+    ArrayAssignmentAST(IdentifierAST *id, ASTNode *expr, ASTNode *index)
+        : identifier(id), expression(expr), index(index) {}
     Value *codegen() override;
 };
 

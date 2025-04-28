@@ -157,6 +157,7 @@ statement_line:
 
 statement:
       assignment  { fprintf(stderr, "DEBUG: Processing assignment statement\n"); $$ = $1; }
+    | array_assignment { fprintf(stderr, "DEBUG: Processing array assignment statement\n"); $$ = $1; }
     | expression  { fprintf(stderr, "DEBUG: Processing expression statement\n"); $$ = $1; }
     | output {fprintf(stderr, "DEBUG: Processing output statement\n"); $$ = $1; }
     | input  {fprintf(stderr, "DEBUG: Processing input statement\n"); $$ = $1; }
@@ -205,7 +206,7 @@ assignment:
 
 array_assignment:
     tok_Identifier '[' tok_Integer_Literal ']' '=' expression {
-        $$ = new ArrayAssignmentAST(new IdentifierAST(std::string($1)), $6, $3); free($1);
+        $$ = new ArrayAssignmentAST(new IdentifierAST(std::string($1)), $6, new IntegerLiteralAST($3)); free($1);
     }
     | tok_Identifier '[' expression ']' '=' expression {
         $$ = new ArrayAssignmentAST(new IdentifierAST(std::string($1)), $6, $3); free($1);
