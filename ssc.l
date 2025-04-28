@@ -153,6 +153,8 @@ void debug_indent(int spaces, const char* action) {
 <normal>"RETURN"               { debug_token("RETURN", yytext); return tok_Return; }
 <normal>"RETURNS"              { debug_token("RETURNS", yytext); return tok_Returns; }
 <normal>"CALL"                 { debug_token("CALL", yytext); return tok_Call; }
+<normal>"ARRAY"                 { debug_token("ARRAY", yytext); return tok_Array; }
+<normal>"OF"                 { debug_token("OF", yytext); return tok_Of; }
 
 <normal>[a-zA-Z][a-zA-Z0-9_]*  { debug_token("IDENTIFIER", yytext); yylval.identifier = strdup(yytext); return tok_Identifier; }
 <normal>[0-9]+             { debug_token("INTEGER", yytext); yylval.integer_literal = atoi(yytext); return tok_Integer_Literal; }
@@ -179,7 +181,7 @@ void debug_indent(int spaces, const char* action) {
 <normal>">="                    { debug_token("GREATER_EQUAL", yytext); return tok_GE; }
 <normal>"=="                    { debug_token("EQUAL", yytext); return tok_EQ; }
 <normal>"!="                    { debug_token("NOT_EQUAL", yytext); return tok_NEQ; }
-<normal>"+"|"-"|"*"|"/"|"="|";"|"("|")"|">"|"<"|"{"|"}"|"!"|","|":" { debug_token("SYMBOL", yytext); return yytext[0]; }
+<normal>"+"|"-"|"*"|"/"|"="|";"|"("|")"|">"|"<"|"{"|"}"|"!"|","|":"|"["|"]" { debug_token("SYMBOL", yytext); return yytext[0]; }
 
 
 

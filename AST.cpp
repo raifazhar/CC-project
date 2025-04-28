@@ -104,6 +104,22 @@ Value *DeclarationAST::codegen()
     return alloca;
 }
 
+Value *ArrayAST::codegen()
+{
+    DEBUG_PRINT_FUNCTION();
+    llvm::errs() << "Generating code for declaration: " << identifier->name << " of type " << type->type << "\n";
+
+    // Get the default value for this type (e.g., 0 for integer types)
+    llvm::Type *varType = TypeAST::typeMap.at(type->type)(context);
+
+    AllocaInst *alloca = builder.CreateAlloca(varType, nullptr, identifier->name);
+
+    globalSymbolTable->setSymbol(identifier->name, alloca, varType);
+
+    llvm::errs() << "Declaration codegen completed for: " << identifier->name << "\n";
+    return alloca;
+}
+
 Value *AssignmentAST::codegen()
 {
     DEBUG_PRINT_FUNCTION();

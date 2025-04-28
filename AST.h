@@ -133,6 +133,19 @@ public:
         : identifier(id), type(t) {}
     Value *codegen() override;
 };
+
+class ArrayAST : public ASTNode
+{
+public:
+    IdentifierAST *identifier;
+    TypeAST *type;
+    size_t size; // Size of the array
+
+    ArrayAST(IdentifierAST *id, TypeAST *t, size_t size)
+        : identifier(id), type(t), size(size) {}
+    Value *codegen() override;
+};
+
 class AssignmentAST : public ASTNode
 {
 public:

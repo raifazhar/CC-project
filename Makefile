@@ -3,10 +3,11 @@ CXX = clang++
 LLVM_CONFIG = llvm-config
 
 # LLVM configuration for Windows/MinGW
-LLVM_INCLUDE = -IC:/msys64/mingw64/include
-LLVM_CXXFLAGS = -std=c++17 $(LLVM_INCLUDE) -fno-exceptions -funwind-tables -D_FILE_OFFSET_BITS=64 -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -D__STDC_LIMIT_MACROS
-LLVM_LDFLAGS = -LC:/msys64/mingw64/lib
-LLVM_LIBS = -lLLVM-19
+LLVM_INCLUDE = $(shell $(LLVM_CONFIG) --includedir)
+LLVM_CXXFLAGS = -std=c++17 -fno-exceptions -funwind-tables -D_FILE_OFFSET_BITS=64 -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -D__STDC_LIMIT_MACROS $(shell $(LLVM_CONFIG) --cxxflags)
+LLVM_LDFLAGS = $(shell $(LLVM_CONFIG) --ldflags)
+LLVM_LIBS = $(shell $(LLVM_CONFIG) --libs)
+
 
 LLC = llc  # LLVM static compiler
 OPT = opt  # LLVM optimizer

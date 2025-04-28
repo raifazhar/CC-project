@@ -50,6 +50,8 @@ std::vector<OutputAST*>* output_list;
 %token <date_literal> tok_Date_Literal
 
 %token tok_Declare
+%token tok_Array
+%token tok_Of
 %token tok_Output tok_Input
 %token tok_If tok_Else tok_End_If
 %token tok_While tok_End_While
@@ -178,9 +180,17 @@ type:
 ;
 
 declaration:
-    tok_Declare tok_Identifier ':' type {
+    tok_Declare tok_Identifier ':' type{
 
         $$ = new DeclarationAST(new IdentifierAST(std::string($2)), $4);
+        free($2);
+    }
+    | tok_Declare tok_Identifier ':' tok_Array'[' tok_Integer_Literal ':' tok_Integer_Literal ']' tok_Of type {
+        $$ = new ArrayAST(new IdentifierAST(std::string($2)), $11, $8);
+        free($2);
+    }
+    | tok_Declare tok_Identifier ':' tok_Array'[' ':' tok_Integer_Literal ']' tok_Of type {
+        $$ = new ArrayAST(new IdentifierAST(std::string($2)), $10, $7);
         free($2);
     }
 ;
@@ -225,7 +235,7 @@ output:
 ;
 
 input:
-    tok_Input tok_Identifier { errs()<<"nigga\n"; $$= new InputAST(new IdentifierAST($2));}
+    tok_Input tok_Identifier { errs()<<"Input int working\n"; $$= new InputAST(new IdentifierAST($2));}
 ;
 
 
