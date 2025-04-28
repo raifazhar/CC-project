@@ -114,7 +114,7 @@ Value *ArrayAST::codegen()
     Value *arraySize = ConstantInt::get(Type::getInt32Ty(context), size);
     AllocaInst *alloca = builder.CreateAlloca(varType, arraySize, identifier->name);
 
-    globalSymbolTable->setSymbol(identifier->name, alloca, varType);
+    globalSymbolTable->setSymbol(identifier->name, alloca, varType, true, 0, size - 1);
 
     llvm::errs() << "Declaration codegen completed for: " << identifier->name << "\n";
     return alloca;
@@ -165,19 +165,19 @@ Value *ArrayAssignmentAST::codegen()
 {
     DEBUG_PRINT_FUNCTION();
 
-    // 1. Look up the variable pointer (not load its value)
-    Value *varPtr = globalSymbolTable->lookupSymbol(identifier->name);
-    if (!varPtr)
+    // 1. Generate code for index
+    Value *indexValue = index->codegen();
+    if (!indexValue)
     {
-        llvm::errs() << "Unknown variable: " << identifier->name << "\n";
+        llvm::errs() << "Failed to generate index for array: " << identifier->name << "\n";
         return nullptr;
     }
 
-    // 2. Get the type of the variable from the symbol table
-    llvm::Type *varType = globalSymbolTable->getSymbolType(identifier->name);
-    if (!varType)
+    // 2. Look up the pointer to the array element
+    Value *elementPtr = globalSymbolTable->lookupSymbol(identifier->name, indexValue);
+    if (!elementPtr)
     {
-        llvm::errs() << "Failed to get type for variable: " << identifier->name << "\n";
+        llvm::errs() << "Unknown array or invalid access: " << identifier->name << "\n";
         return nullptr;
     }
 
@@ -188,35 +188,21 @@ Value *ArrayAssignmentAST::codegen()
         return nullptr;
     }
 
-    // 4 get index value
-    Value *indexValue = index->codegen();
-    if (!indexValue)
-    {
-        llvm::errs() << "Failed to get index value for variable: " << identifier->name << "\n";
-        return nullptr;
-    }
-
-    // 5. Type check
+    // 4. Type check: Make sure the value matches the array element type
+    llvm::Type *expectedType = elementPtr->getType()->getArrayElementType(); // element type
     llvm::Type *valType = val->getType();
-    if (varType->getTypeID() != valType->getTypeID())
+    if (expectedType != valType)
     {
-        llvm::outs() << "Type mismatch: Cannot assign " << *valType << " to " << *varType << "\n";
+        llvm::errs() << "Type mismatch: Cannot assign " << *valType << " to " << *expectedType << "\n";
         return nullptr;
     }
 
-    // 6. Calculate pointer to the array element
-    std::vector<Value*> indices = {
-        ConstantInt::get(Type::getInt32Ty(context), 0), // because varPtr is an alloca pointer
-        indexValue
-    };
-    
-    Value *elementPtr = builder.CreateGEP(varType->getArrayElementType(), varPtr, indices, "elementptr");
-    
-    // 7. Store the value into the element pointer
+    // 5. Store the value into the array element
     builder.CreateStore(val, elementPtr);
 
     return val;
 }
+
 
 Value *OutputAST::codegen()
 {

@@ -11,6 +11,9 @@ class SymbolTable
     {
         llvm::Value *value;
         llvm::Type *type;
+        bool isArray;
+        int startIndex;
+        int endIndex;
     };
 
 public:
@@ -18,9 +21,9 @@ public:
 
     void enterScope();
     void exitScope();
-    llvm::Value *lookupSymbol(const std::string &id);
-    void setSymbol(const std::string &id, llvm::Value *value, llvm::Type *type);
-    llvm::Value *createNewSymbol(const std::string &id, llvm::Type *type);
+    llvm::Value *lookupSymbol(const std::string &id, llvm::Value *index = nullptr);
+    void setSymbol(const std::string &id, llvm::Value *value, llvm::Type *type, bool isArray = false, int startIndex = -1, int endIndex = -1);
+    llvm::Value *createNewSymbol(const std::string &id, llvm::Type *type, bool isArray = false, int startIndex = -1, int endIndex = -1);
     Type *getSymbolType(const std::string &id);
 
 private:

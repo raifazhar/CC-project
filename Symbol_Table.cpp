@@ -20,19 +20,39 @@ void SymbolTable::exitScope()
     }
 }
 
-llvm::Value *SymbolTable::lookupSymbol(const std::string &id)
+llvm::Value *SymbolTable::lookupSymbol(const std::string &id, llvm::Value *index)
 {
-    // Search through the symbol table scopes to find the variable
     auto scopes = SymbolTableStack;
     while (!scopes.empty())
     {
         auto &scope = scopes.top();
         auto it = scope.find(id);
         if (it != scope.end())
-            return it->second.value; // Access the 'value' member of SymbolEntry
+        {
+            if (index == nullptr)
+            {
+                return it->second.value;
+            }
+
+            // If it's an array, compute GEP
+            if (it->second.isArray)
+            {                
+                llvm::Value *zero = llvm::ConstantInt::get(builder.getInt32Ty(), 0);
+                llvm::Value *ptr = builder.CreateGEP(it->second.type, it->second.value, {zero, index});
+                
+                // Step 2: Load the value from the address
+                llvm::Type* elementType = it->second.type->getArrayElementType(); // e.g., i32
+                return builder.CreateLoad(elementType, ptr, id + "_val");
+            }
+            else
+            {
+                return nullptr;
+            }
+        }
         scopes.pop();
     }
-    return nullptr; // Return nullptr if the symbol is not found
+
+    return nullptr; // Not found
 }
 
 llvm::Type *SymbolTable::getSymbolType(const std::string &id)
@@ -49,23 +69,33 @@ llvm::Type *SymbolTable::getSymbolType(const std::string &id)
     return nullptr; // Return nullptr if the symbol is not found
 }
 
-void SymbolTable::setSymbol(const std::string &id, llvm::Value *value, llvm::Type *type)
+void SymbolTable::setSymbol(const std::string &id, llvm::Value *value, llvm::Type *type, bool isArray, int startIndex, int endIndex)
 {
-    // Add a new symbol to the current scope with its value and type
+    // Set the symbol in the current scope with its value and type
     if (!SymbolTableStack.empty())
     {
         // Store the symbol as a SymbolEntry with Value and Type
-        SymbolTableStack.top()[id] = {value, type};
+        SymbolTableStack.top()[id] = {value, type, isArray, startIndex, endIndex};
     }
 }
 
-llvm::Value *SymbolTable::createNewSymbol(const std::string &id, llvm::Type *type)
+llvm::Value *SymbolTable::createNewSymbol(const std::string &id, llvm::Type *type, bool isArray, int startIndex, int endIndex)
 {
-    // Create an alloca instruction to allocate memory for the variable
-    llvm::Value *alloca = builder.CreateAlloca(type, nullptr, id);
+    if (!SymbolTableStack.empty() && SymbolTableStack.top().find(id) != SymbolTableStack.top().end())
+    {
+        return nullptr;
+    }
 
-    // Store the variable in the current scope with its value (alloca) and type
-    SymbolTableStack.top()[id] = {alloca, type};
+    llvm::Type *allocType = type;
+    if (isArray)
+    {
+        allocType = llvm::ArrayType::get(type, endIndex - startIndex + 1);
+    }
 
-    return alloca; // Return the alloca value (memory location for the variable)
+    llvm::Value *alloca = builder.CreateAlloca(allocType, nullptr, id);
+
+    SymbolTableStack.top()[id] = {alloca, allocType, isArray, startIndex, endIndex};
+
+    return alloca;
 }
+
