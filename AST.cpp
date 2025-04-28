@@ -111,8 +111,8 @@ Value *ArrayAST::codegen()
 
     // Get the default value for this type (e.g., 0 for integer types)
     llvm::Type *varType = TypeAST::typeMap.at(type->type)(context);
-
-    AllocaInst *alloca = builder.CreateAlloca(varType, nullptr, identifier->name);
+    Value *arraySize = ConstantInt::get(Type::getInt32Ty(context), size);
+    AllocaInst *alloca = builder.CreateAlloca(varType, arraySize, identifier->name);
 
     globalSymbolTable->setSymbol(identifier->name, alloca, varType);
 
@@ -157,6 +157,63 @@ Value *AssignmentAST::codegen()
 
     // 5. Store the value in the variable pointer
     builder.CreateStore(val, varPtr);
+
+    return val;
+}
+
+Value *ArrayAssignmentAST::codegen()
+{
+    DEBUG_PRINT_FUNCTION();
+
+    // 1. Look up the variable pointer (not load its value)
+    Value *varPtr = globalSymbolTable->lookupSymbol(identifier->name);
+    if (!varPtr)
+    {
+        llvm::errs() << "Unknown variable: " << identifier->name << "\n";
+        return nullptr;
+    }
+
+    // 2. Get the type of the variable from the symbol table
+    llvm::Type *varType = globalSymbolTable->getSymbolType(identifier->name);
+    if (!varType)
+    {
+        llvm::errs() << "Failed to get type for variable: " << identifier->name << "\n";
+        return nullptr;
+    }
+
+    // 3. Generate code for the value being assigned
+    Value *val = expression->codegen();
+    if (!val)
+    {
+        return nullptr;
+    }
+
+    // 4 get index value
+    Value *indexValue = index->codegen();
+    if (!indexValue)
+    {
+        llvm::errs() << "Failed to get index value for variable: " << identifier->name << "\n";
+        return nullptr;
+    }
+
+    // 5. Type check
+    llvm::Type *valType = val->getType();
+    if (varType->getTypeID() != valType->getTypeID())
+    {
+        llvm::outs() << "Type mismatch: Cannot assign " << *valType << " to " << *varType << "\n";
+        return nullptr;
+    }
+
+    // 6. Calculate pointer to the array element
+    std::vector<Value*> indices = {
+        ConstantInt::get(Type::getInt32Ty(context), 0), // because varPtr is an alloca pointer
+        indexValue
+    };
+    
+    Value *elementPtr = builder.CreateGEP(varType->getArrayElementType(), varPtr, indices, "elementptr");
+    
+    // 7. Store the value into the element pointer
+    builder.CreateStore(val, elementPtr);
 
     return val;
 }

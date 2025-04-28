@@ -158,6 +158,19 @@ public:
     Value *codegen() override;
 };
 
+class ArrayAssignmentAST : public ASTNode
+{
+public:
+    IdentifierAST *identifier;
+    ASTNode *expression;
+    TypeAST *declaredType;
+    ASTNode *index;
+
+    ArrayAssignmentAST(IdentifierAST *id, ASTNode *expr, ASTNode *index, TypeAST *type = nullptr)
+        : identifier(id), expression(expr), index(index) ,declaredType(type) {}
+    Value *codegen() override;
+};
+
 class OutputAST : public ASTNode
 {
 public:

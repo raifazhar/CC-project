@@ -31,6 +31,7 @@
     ASTNode* ast_node;
     TypeAST* type_node;
     ComparisonAST* comparison_ast;
+    ArrayAssignmentAST* array_assignment_ast;
     AssignmentAST* assignment_ast;
     BinaryOpAST* binary_ast;
     RealLiteralAST* real_ast;
@@ -80,6 +81,7 @@ std::vector<OutputAST*>* output_list;
 %type <ast_node> procedure_stmt function_stmt func_call_stmt return_stmt declaration
 %type <comparison_ast> comparison
 %type <assignment_ast> assignment
+%type <array_assignment_ast> array_assignment
 %type <input_ast> input
 %type <type_node> type
 %type <stmt_list> statements statement_line argument_list
@@ -198,6 +200,15 @@ declaration:
 assignment:
     tok_Identifier '=' expression {
         $$ = new AssignmentAST(new IdentifierAST(std::string($1)), $3); free($1);
+    }
+;
+
+array_assignment:
+    tok_Identifier '[' tok_Integer_Literal ']' '=' expression {
+        $$ = new ArrayAssignmentAST(new IdentifierAST(std::string($1)), $6, $3); free($1);
+    }
+    | tok_Identifier '[' expression ']' '=' expression {
+        $$ = new ArrayAssignmentAST(new IdentifierAST(std::string($1)), $6, $3); free($1);
     }
 ;
 
