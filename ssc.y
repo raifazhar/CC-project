@@ -32,10 +32,11 @@
     TypeAST* type_node;
     ComparisonAST* comparison_ast;
     AssignmentAST* assignment_ast;
+    BinaryOpAST* binary_ast;
     RealLiteralAST* real_ast;
-    InputAST* input_ast;
+InputAST* input_ast;
     std::vector<ASTNode*>* stmt_list;
-    std::vector<OutputAST*>* output_list;
+std::vector<OutputAST*>* output_list;
     std::vector<ParameterAST*>* param_list;
     StatementBlockAST* statement_block_ast;
 }
@@ -68,7 +69,7 @@
 %token tok_GE ">="
 
 %left '+' '-' '*' '/' '<' '>' tok_LE tok_GE tok_EQ tok_NEQ tok_AddOne tok_SubOne
-%left tok_Newline
+
 %right UMINUS
 
 %type <integer_literal> opt_step
@@ -76,10 +77,10 @@
 %type <ast_node> if_stmt for_stmt while_stmt repeat_stmt output
 %type <ast_node> procedure_stmt function_stmt func_call_stmt return_stmt declaration
 %type <comparison_ast> comparison
-%type <assignment_ast> assignment 
+%type <assignment_ast> assignment
 %type <input_ast> input
 %type <type_node> type
-%type <stmt_list> statements argument_list
+%type <stmt_list> statements statement_line argument_list
 %type <param_list> parameter_list
 %type <statement_block_ast> statement_block
 
@@ -113,34 +114,42 @@ root:
     }
 ;
 
-
 statements:
-    statements newline statement {
-        fprintf(stderr, "DEBUG: Creating statement_line with statement type: %s\n", typeid(*$3).name());
+    statement_line { 
+        fprintf(stderr, "DEBUG: Creating new statements list with single statement_line\n"); 
+        $$ = $1; 
+    }
+    | statements statement_line {
+        fprintf(stderr, "DEBUG: Appending statement_line to existing statements list\n");
+        fprintf(stderr, "DEBUG: Current statements size: %zu\n", $1->size());
+        $$ = $1;
+        $$->insert($$->end(), $2->begin(), $2->end());
+        fprintf(stderr, "DEBUG: New statements size after append: %zu\n", $$->size());
+        delete $2;
+    }
+;
+
+statement_line:
+    statement tok_Newline {
+        fprintf(stderr, "DEBUG: Creating statement_line with statement type: %s\n", typeid(*$1).name());
         fprintf(stderr, "DEBUG: Statement at line %d\n", yylineno);
-        
-        $$ = $1; // No need to create a new vector here
-        if ($3) {
+        $$ = new std::vector<ASTNode*>();
+        if ($1) {
             fprintf(stderr, "DEBUG: Valid statement found, adding to vector\n");
-            $$->push_back($3);  // Add the statement node to the existing list
+            $$->push_back($1);
         } else {
             fprintf(stderr, "DEBUG: Null statement encountered\n");
         }
     }
-  | statement {
+    | statement {
         fprintf(stderr, "DEBUG: Creating statement_line without newline\n");
-        $$ = new std::vector<ASTNode*>();  // Create a new vector if $1 is a single statement
+        $$ = new std::vector<ASTNode*>();
         if ($1) {
             fprintf(stderr, "DEBUG: Valid statement found, adding to vector\n");
-            $$->push_back($1);  // Add the single statement node
+            $$->push_back($1);
         }
     }
 ;
-newline:
-    tok_Newline
-  | newline tok_Newline
-;
-
 
 statement:
       assignment  { fprintf(stderr, "DEBUG: Processing assignment statement\n"); $$ = $1; }
@@ -157,8 +166,6 @@ statement:
     | declaration { fprintf(stderr, "DEBUG: Processing declaration statement\n"); $$ = $1; }
     | return_stmt { fprintf(stderr, "DEBUG: Processing return statement\n"); $$=$1; }
 ;
-
-
 
 
 type:
@@ -229,7 +236,7 @@ expression:
     | expression '+' expression { $$ = new BinaryOpAST($1, $3, "+"); }
     | expression '-' expression { $$ = new BinaryOpAST($1, $3, "-"); }
     | expression '*' expression { $$ = new BinaryOpAST($1, $3, "*"); }
-    | expression '/' expression { $$ = new BinaryOpAST($1, $3, "/"); }
+| expression '/' expression { $$ = new BinaryOpAST($1, $3, "/"); }
     | '-' expression      %prec UMINUS {$$= new UnaryOpAST($2,"-");}
 ;
 
