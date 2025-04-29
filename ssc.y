@@ -137,7 +137,6 @@ statements:
 
 statement_line:
     statement opt_newline {
-        debug("Statement at line %d", @1.first_line);
         $$ = new std::vector<ASTNode*>();
         if ($1) $$->push_back($1);
     }
