@@ -109,12 +109,17 @@ Value *ArrayAST::codegen()
     DEBUG_PRINT_FUNCTION();
     llvm::errs() << "Generating code for declaration: " << identifier->name << " of type " << type->type << "\n";
 
-    // Get the default value for this type (e.g., 0 for integer types)
-    llvm::Type *varType = TypeAST::typeMap.at(type->type)(context);
-    Value *arraySize = ConstantInt::get(Type::getInt32Ty(context), size);
-    AllocaInst *alloca = builder.CreateAlloca(varType, arraySize, identifier->name);
+    // 1. Get the element type (like i32)
+    llvm::Type *elementType = TypeAST::typeMap.at(type->type)(context);
 
-    globalSymbolTable->setSymbol(identifier->name, alloca, varType, true, 0, size - 1);
+    // 2. Create the array type [size x elementType]
+    llvm::ArrayType *arrayType = llvm::ArrayType::get(elementType, size);
+
+    // 3. Create an alloca of the array type
+    AllocaInst *alloca = builder.CreateAlloca(arrayType, nullptr, identifier->name);
+
+    // 4. Set it in the symbol table
+    globalSymbolTable->setSymbol(identifier->name, alloca, arrayType, true, 0, size - 1);
 
     llvm::errs() << "Declaration codegen completed for: " << identifier->name << "\n";
     return alloca;
@@ -188,12 +193,23 @@ Value *ArrayAssignmentAST::codegen()
         return nullptr;
     }
 
-    // 4. Type check: Make sure the value matches the array element type
-    llvm::Type *expectedType = globalSymbolTable->getSymbolType(identifier->name);
-    llvm::Type *valType = val->getType();
-    if (expectedType->getTypeID() != valType->getTypeID())
+    // 4. Type check: match **element type**, not array type
+    llvm::Type *expectedArrayType = globalSymbolTable->getSymbolType(identifier->name);
+
+    llvm::Type *expectedElementType = nullptr;
+    if (expectedArrayType->isArrayTy())
     {
-        llvm::errs() << "Type mismatch: Cannot assign " << *valType << " to " << *expectedType << "\n";
+        expectedElementType = expectedArrayType->getArrayElementType();
+    }
+    else
+    {
+        expectedElementType = expectedArrayType; // fallback
+    }
+
+    llvm::Type *valType = val->getType();
+    if (expectedElementType->getTypeID() != valType->getTypeID())
+    {
+        llvm::errs() << "Type mismatch: Cannot assign " << *valType << " to element type " << *expectedElementType << "\n";
         return nullptr;
     }
 

@@ -20,7 +20,7 @@ void SymbolTable::exitScope()
     }
 }
 
-Value *SymbolTable::lookupSymbol(const std::string &id, llvm::Value *index)
+llvm::Value *SymbolTable::lookupSymbol(const std::string &id, llvm::Value *index)
 {
     auto scopes = SymbolTableStack;
     while (!scopes.empty())
@@ -34,14 +34,23 @@ Value *SymbolTable::lookupSymbol(const std::string &id, llvm::Value *index)
                 return it->second.value;
             }
 
-            // If it's an array, compute GEP
             if (it->second.isArray)
             {
-                llvm::Value *ptr = builder.CreateGEP(
-                    it->second.type,  // base element type (i32)
-                    it->second.value, // base pointer
-                    index             // ONLY one index
-                );
+                llvm::Value *zero = llvm::ConstantInt::get(builder.getInt32Ty(), 0);
+
+                // Step 1: Adjust index if array startIndex != 0
+                if (it->second.startIndex != 0)
+                {
+                    llvm::Value *startIdx = llvm::ConstantInt::get(builder.getInt32Ty(), it->second.startIndex);
+                    index = builder.CreateSub(index, startIdx, id + "_adjusted_index");
+                }
+
+                // Step 2: Calculate GEP
+                Value *ptr = builder.CreateGEP(
+                    it->second.type, // array type [size x element]
+                    it->second.value,
+                    {zero, index});
+
                 return ptr;
             }
             else

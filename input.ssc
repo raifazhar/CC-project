@@ -1,2 +1,2 @@
 DECLARE j : ARRAY[:30] OF INTEGER
-j[0] = 2
+j[1] = 2
