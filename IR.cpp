@@ -3,18 +3,7 @@
 extern char *yytext;
 extern int yylineno;
 
-// Global symbol table instance
 SymbolTable *globalSymbolTable = nullptr;
-
-void initSymbolTable(CodegenContext &ctx)
-{
-    if (!globalSymbolTable)
-    {
-        globalSymbolTable = new SymbolTable(ctx);
-    }
-}
-
-// std::map<std::string, Value *> SymbolTable;
 LLVMContext context;
 Module *module = nullptr;
 IRBuilder<> builder(context);
@@ -28,10 +17,7 @@ void initLLVM()
     mainFunction = Function::Create(mainTy, Function::ExternalLinkage, "main", module);
     BasicBlock *entry = BasicBlock::Create(context, "entry", mainFunction);
     builder.SetInsertPoint(entry);
-
-    // Initialize symbol table with the current context
-    CodegenContext ctx(context, module, builder, mainFunction);
-    initSymbolTable(ctx);
+    globalSymbolTable = new SymbolTable();
 }
 
 void addReturnInstr()
@@ -45,7 +31,6 @@ void addReturnInstr()
     builder.CreateRet(ConstantInt::get(context, APInt(32, 0)));
     fprintf(stderr, "Return instruction added successfully\n");
 }
-
 
 void printLLVMIR()
 {

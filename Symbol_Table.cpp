@@ -3,7 +3,6 @@
 #include "IR.h"
 #include <llvm/IR/IRBuilder.h>
 
-SymbolTable::SymbolTable(CodegenContext &ctx) : codegenContext(ctx) {}
 
 void SymbolTable::enterScope()
 {

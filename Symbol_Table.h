@@ -3,7 +3,7 @@
 #define SYMBOL_TABLE_H
 
 #include "common_includes.h"
-#include "CodegenContext.h"
+// #include "CodegenContext.h"
 
 class SymbolTable
 {
@@ -17,7 +17,7 @@ class SymbolTable
     };
 
 public:
-    SymbolTable(CodegenContext &ctx); // Constructor accepting CodegenContext reference
+    SymbolTable() = default;
 
     void enterScope();
     void exitScope();
@@ -28,7 +28,6 @@ public:
 
 private:
     std::stack<std::unordered_map<std::string, SymbolEntry>> SymbolTableStack;
-    CodegenContext &codegenContext; // Reference to CodegenContext
 };
 
 #endif // SYMBOLTABLE_H
