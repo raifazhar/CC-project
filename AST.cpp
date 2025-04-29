@@ -104,27 +104,6 @@ Value *DeclarationAST::codegen()
     return alloca;
 }
 
-Value *ArrayAST::codegen()
-{
-    DEBUG_PRINT_FUNCTION();
-    llvm::errs() << "Generating code for declaration: " << identifier->name << " of type " << type->type << "\n";
-
-    // 1. Get the element type (like i32)
-    llvm::Type *elementType = TypeAST::typeMap.at(type->type)(context);
-
-    // 2. Create the array type [size x elementType]
-    llvm::ArrayType *arrayType = llvm::ArrayType::get(elementType, size);
-
-    // 3. Create an alloca of the array type
-    AllocaInst *alloca = builder.CreateAlloca(arrayType, nullptr, identifier->name);
-
-    // 4. Set it in the symbol table
-    globalSymbolTable->setSymbol(identifier->name, alloca, arrayType, true, 0, size - 1);
-
-    llvm::errs() << "Declaration codegen completed for: " << identifier->name << "\n";
-    return alloca;
-}
-
 Value *AssignmentAST::codegen()
 {
     DEBUG_PRINT_FUNCTION();
@@ -133,7 +112,7 @@ Value *AssignmentAST::codegen()
     Value *varPtr = globalSymbolTable->lookupSymbol(identifier->name);
     if (!varPtr)
     {
-        llvm::errs() << "Unknown variable: " << identifier->name << "\n";
+        llvm::outs() << "Unknown variable: " << identifier->name << "\n";
         return nullptr;
     }
 
@@ -141,7 +120,7 @@ Value *AssignmentAST::codegen()
     llvm::Type *varType = globalSymbolTable->getSymbolType(identifier->name);
     if (!varType)
     {
-        llvm::errs() << "Failed to get type for variable: " << identifier->name << "\n";
+        llvm::outs() << "Failed to get type for variable: " << identifier->name << "\n";
         return nullptr;
     }
 
@@ -165,6 +144,28 @@ Value *AssignmentAST::codegen()
 
     return val;
 }
+
+Value *ArrayAST::codegen()
+{
+    DEBUG_PRINT_FUNCTION();
+    llvm::errs() << "Generating code for declaration: " << identifier->name << " of type " << type->type << "\n";
+
+    // 1. Get the element type (like i32)
+    llvm::Type *elementType = TypeAST::typeMap.at(type->type)(context);
+
+    // 2. Create the array type [size x elementType]
+    llvm::ArrayType *arrayType = llvm::ArrayType::get(elementType, size);
+
+    // 3. Create an alloca of the array type
+    AllocaInst *alloca = builder.CreateAlloca(arrayType, nullptr, identifier->name);
+
+    // 4. Set it in the symbol table
+    globalSymbolTable->setSymbol(identifier->name, alloca, arrayType, true, 0, size - 1);
+
+    llvm::errs() << "Declaration codegen completed for: " << identifier->name << "\n";
+    return alloca;
+}
+
 
 Value *ArrayAssignmentAST::codegen()
 {
@@ -542,7 +543,7 @@ Value *FuncAST::codegen()
     FunctionType *funcType = FunctionType::get(FuncType, paramTypes, false);
     Function *function = Function::Create(funcType, Function::ExternalLinkage, Identifier->name, *module);
 
-    BasicBlock *prevInsertBlock = builder.GetInsertBlock();
+        BasicBlock *prevInsertBlock = builder.GetInsertBlock();
     // Create the entry block for the function
     BasicBlock *entryBB = BasicBlock::Create(context, "entry", function);
     builder.SetInsertPoint(entryBB);
@@ -588,10 +589,27 @@ Value *FuncCallAST::codegen()
         return nullptr;
     }
 
-    std::vector<Value *> args;
-    for (auto *arg : arguments)
+    if (callee->arg_size() != arguments.size())
     {
-        args.push_back(arg->codegen());
+        errs() << "Function " << name << " called with incorrect number of arguments\n";
+        return nullptr;
+    }
+
+    std::vector<Value *> args;
+    auto argIt = callee->arg_begin();
+    for (size_t i = 0; i < arguments.size(); ++i, ++argIt)
+    {
+        Value *argVal = arguments[i]->codegen();
+        if (!argVal)
+            return nullptr;
+
+        if (argVal->getType() != argIt->getType())
+        {
+            errs() << "Type mismatch in argument " << i << " of function " << name << "\n";
+            return nullptr;
+        }
+
+        args.push_back(argVal);
     }
 
     return builder.CreateCall(callee, args);

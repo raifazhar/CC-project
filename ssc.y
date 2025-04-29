@@ -167,7 +167,6 @@ statement:
     | repeat_stmt { fprintf(stderr, "DEBUG: Processing repeat statement\n"); $$ = $1; }
     | procedure_stmt { fprintf(stderr, "DEBUG: Processing procedure statement\n"); $$ = $1; }
     | function_stmt { fprintf(stderr, "DEBUG: Processing function statement\n"); $$ = $1; }
-    | func_call_stmt { fprintf(stderr, "DEBUG: Processing function call statement\n"); $$ = $1; }
     | declaration { fprintf(stderr, "DEBUG: Processing declaration statement\n"); $$ = $1; }
     | return_stmt { fprintf(stderr, "DEBUG: Processing return statement\n"); $$=$1; }
 ;
@@ -258,8 +257,9 @@ expression:
     | expression '+' expression { $$ = new BinaryOpAST($1, $3, "+"); }
     | expression '-' expression { $$ = new BinaryOpAST($1, $3, "-"); }
     | expression '*' expression { $$ = new BinaryOpAST($1, $3, "*"); }
-| expression '/' expression { $$ = new BinaryOpAST($1, $3, "/"); }
+    | expression '/' expression { $$ = new BinaryOpAST($1, $3, "/"); }
     | '-' expression      %prec UMINUS {$$= new UnaryOpAST($2,"-");}
+    | func_call_stmt {$$=$1;}
 ;
 
 
@@ -339,13 +339,13 @@ repeat_stmt:
 ;
 
 parameter_list:
-      type tok_Identifier {
+       tok_Identifier ':' type {
           $$ = new std::vector<ParameterAST *>();
-          $$->push_back(new ParameterAST($1, std::string($2)));
+          $$->push_back(new ParameterAST($3, std::string($1)));
       }
-    | parameter_list ',' type tok_Identifier {
+    | parameter_list ',' tok_Identifier ':' type {
           $$ = $1;
-          $$->push_back(new ParameterAST($3, std::string($4)));
+          $$->push_back(new ParameterAST($5, std::string($3)));
       }
     | /* empty */ {
           $$ = new std::vector<ParameterAST *>();
