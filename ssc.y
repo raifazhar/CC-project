@@ -57,7 +57,7 @@ std::vector<OutputAST*>* output_list;
 %token tok_If tok_Else tok_End_If
 %token tok_While tok_End_While
 %token tok_Repeat tok_Until
-%token tok_For tok_Next tok_To tok_Step
+%token tok_For tok_Next tok_To tok_Step 
 %token tok_Procedure tok_End_Procedure
 %token tok_Function tok_End_Function tok_Returns tok_Return
 %token tok_Call
@@ -71,11 +71,13 @@ std::vector<OutputAST*>* output_list;
 %token tok_LE "<="
 %token tok_GE ">="
 
-%left '+' '-' '*' '/' '<' '>' tok_LE tok_GE tok_EQ tok_NEQ tok_AddOne tok_SubOne
-
+%left '+' '-'
+%left '*' '/'
+%nonassoc '<' '>' tok_LE tok_GE tok_EQ tok_NEQ
+%left tok_AddOne tok_SubOne
 %right UMINUS
 
-%type <integer_literal> opt_step
+%type <integer_literal> opt_step integer_expr
 %type <ast_node> statement expression term
 %type <ast_node> if_stmt for_stmt while_stmt repeat_stmt output
 %type <ast_node> procedure_stmt function_stmt func_call_stmt return_stmt declaration
@@ -134,26 +136,18 @@ statements:
 ;
 
 statement_line:
-    statement tok_Newline {
-        fprintf(stderr, "DEBUG: Creating statement_line with statement type: %s\n", typeid(*$1).name());
-        fprintf(stderr, "DEBUG: Statement at line %d\n", yylineno);
+    statement opt_newline {
+        debug("Statement at line %d", @1.first_line);
         $$ = new std::vector<ASTNode*>();
-        if ($1) {
-            fprintf(stderr, "DEBUG: Valid statement found, adding to vector\n");
-            $$->push_back($1);
-        } else {
-            fprintf(stderr, "DEBUG: Null statement encountered\n");
-        }
-    }
-    | statement {
-        fprintf(stderr, "DEBUG: Creating statement_line without newline\n");
-        $$ = new std::vector<ASTNode*>();
-        if ($1) {
-            fprintf(stderr, "DEBUG: Valid statement found, adding to vector\n");
-            $$->push_back($1);
-        }
+        if ($1) $$->push_back($1);
     }
 ;
+
+opt_newline:
+    tok_Newline
+  | /* empty */
+;
+
 
 statement:
       assignment  { fprintf(stderr, "DEBUG: Processing assignment statement\n"); $$ = $1; }
@@ -204,10 +198,7 @@ assignment:
 ;
 
 array_assignment:
-    tok_Identifier '[' tok_Integer_Literal ']' '=' expression {
-        $$ = new ArrayAssignmentAST(new IdentifierAST(std::string($1)), $6, new IntegerLiteralAST($3)); free($1);
-    }
-    | tok_Identifier '[' expression ']' '=' expression {
+    tok_Identifier '[' expression ']' '=' expression {
         $$ = new ArrayAssignmentAST(new IdentifierAST(std::string($1)), $6, $3); free($1);
     }
 ;
@@ -320,9 +311,13 @@ for_stmt:
 
 // handle optional "STEP"
 opt_step:
-    tok_Step tok_Integer_Literal { $$ = $2; }
-    |tok_Step '-' tok_Integer_Literal {$$=-$3;}
-    | /* empty */ { $$ = 0; }
+    /* empty */           { $$ = 1; }
+  | tok_Step integer_expr { $$ = $2; }
+;
+
+integer_expr:
+    tok_Integer_Literal   { $$ = $1; }
+  | '-' tok_Integer_Literal { $$ = -$2; }
 ;
 
 
@@ -395,13 +390,13 @@ func_call_stmt:
 %%
 
 int main(int argc, char** argv) {
-    if (argc > 1) {
+        if (argc > 1) {
         FILE *fp = fopen(argv[1], "r");
         if (fp == NULL) {
             fprintf(stderr, "Error opening file: %s\n", argv[1]);
             return EXIT_FAILURE;
         }
-        yyin = fp;
+    yyin = fp;
         fprintf(stderr, "Opened input file: %s\n", argv[1]);
     } 
     if (yyin == NULL) {
@@ -414,9 +409,9 @@ int main(int argc, char** argv) {
     
     int parserResult = yyparse();
     fprintf(stderr, "Parser result: %d\n", parserResult);
-    
+
     printLLVMIR();
     fprintf(stderr, "LLVM IR printed\n");
-
+    
     return EXIT_SUCCESS;
 }
