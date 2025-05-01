@@ -482,6 +482,7 @@ Value *RepeatAST::codegen()
     // Emit condition
     builder.SetInsertPoint(condBB);
     Value *condVal = condition->codegen();
+    condVal = builder.CreateICmpEQ(condVal, ConstantInt::get(Type::getInt1Ty(context), 0), "repeat_cond");
     builder.CreateCondBr(condVal, endBB, bodyBB);
 
     // Continue with end block
