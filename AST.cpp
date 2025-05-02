@@ -619,20 +619,50 @@ Value *FuncCallAST::codegen()
 Value *LogicalOpAST::codegen()
 {
     DEBUG_PRINT_FUNCTION();
-    Value *lhsVal = lhs->codegen();
-    Value *rhsVal = rhs->codegen();
+    if(cmpOp=="NOT"){
+        if(!RHS){
+            errs() << "NOT operation requires a right-hand side operand\n";
+            return nullptr;
+        }
+        Value *rhsVal = RHS->codegen();
+        if (!rhsVal)
+        {
+            return nullptr;
+        }
+        if(!rhsVal->getType()->isIntegerTy(1)){
+           rhsVal=builder.CreateICmpEQ(rhsVal, ConstantInt::get(rhsVal->getType(), 0), "tobool");
+        }
+        return builder.CreateNot(rhsVal, "nottmp");
+    }
+    if (!LHS || !RHS) {
+        errs() << "Error: NULL operand for binary logical operator: " << cmpOp << "\n";
+        return nullptr;
+    }
+    Value *lhsVal = LHS->codegen();
+    Value *rhsVal = RHS->codegen();
+    if (!lhsVal || !rhsVal) return nullptr;
 
-    if (op == "and")
-    {
+    if (!lhsVal->getType()->isIntegerTy(1)) {
+        lhsVal = builder.CreateICmpNE(
+            lhsVal, 
+            ConstantInt::get(lhsVal->getType(), 0),
+            "tobool"
+        );
+    }
+    
+    if (!rhsVal->getType()->isIntegerTy(1)) {
+        rhsVal = builder.CreateICmpNE(
+            rhsVal, 
+            ConstantInt::get(rhsVal->getType(), 0),
+            "tobool"
+        );
+    }
+    if (cmpOp == "AND") {
         return builder.CreateAnd(lhsVal, rhsVal, "andtmp");
-    }
-    else if (op == "or")
-    {
+    } else if (cmpOp == "OR") {
         return builder.CreateOr(lhsVal, rhsVal, "ortmp");
-    }
-    else
-    {
-        errs() << "Unknown logical operator: " << op << "\n";
+    } else {
+        errs() << "Unknown logical operator: " << cmpOp << "\n";
         return nullptr;
     }
 }

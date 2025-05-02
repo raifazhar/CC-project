@@ -3,4 +3,4 @@ i = 2
 REPEAT
     OUTPUT i
     i = i + 1
-UNTIL i == 3
+UNTIL i >=2 AND i<4

@@ -135,6 +135,9 @@ void debug_indent(int spaces, const char* action) {
 <normal>"DECLARE"              { debug_token("DECLARE", yytext); return tok_Declare; }
 <normal>"OUTPUT"               { debug_token("DECLARE", yytext); return tok_Output; }
 <normal>"INPUT"               { debug_token("DECLARE", yytext); return tok_Input; }
+<normal>"AND"                 { debug_token("AND", yytext); return tok_And; }
+<normal>"OR"                  { debug_token("OR", yytext); return tok_Or; }
+<normal>"NOT"                 { debug_token("NOT", yytext); return tok_Not; }
 <normal>"IF"                   { debug_token("IF", yytext); return tok_If; }
 <normal>"ELSE"                 { debug_token("ELSE", yytext); return tok_Else; }
 <normal>"ENDIF"                { debug_token("ENDIF", yytext); return tok_End_If; }

@@ -232,17 +232,7 @@ public:
     }
 };
 
-class LogicalOpAST : public ASTNode
-{
-public:
-    std::string op;
-    ASTNode *lhs;
-    ASTNode *rhs;
 
-    LogicalOpAST(const std::string &operation, ASTNode *left, ASTNode *right)
-        : op(operation), lhs(left), rhs(right) {}
-    Value *codegen() override;
-};
 
 class ComparisonAST : public ASTNode
 {
@@ -256,7 +246,14 @@ public:
     Value *codegen() override;
     Value *codegen_single();
 };
+class LogicalOpAST : public ComparisonAST
+{
+public:
 
+    LogicalOpAST(ASTNode *left, ASTNode *right, const std::string &operation)
+        :  ComparisonAST(left, right, operation) {}
+    Value *codegen() override;
+};
 // --- Statements ---
 class StatementBlockAST : public ASTNode
 {

@@ -70,9 +70,15 @@ std::vector<OutputAST*>* output_list;
 %token tok_NEQ "!="
 %token tok_LE "<="
 %token tok_GE ">="
+%token tok_And "AND"
+%token tok_Or "OR"
+%token tok_Not "NOT"
 
 %left '+' '-'
 %left '*' '/'
+%left tok_Or
+%left tok_And
+%right tok_Not
 %nonassoc '<' '>' tok_LE tok_GE tok_EQ tok_NEQ
 %left tok_AddOne tok_SubOne
 %right UMINUS
@@ -253,6 +259,7 @@ expression:
 ;
 
 
+
 comparison:
       expression '>' expression { $$ = new ComparisonAST( $1, $3, ">"); }
     | expression '<' expression { $$ = new ComparisonAST( $1, $3,"<"); }
@@ -260,6 +267,9 @@ comparison:
     | expression tok_LE expression { $$ = new ComparisonAST($1, $3,"<="); }
     | expression tok_GE expression { $$ = new ComparisonAST($1, $3,">="); }
     | expression tok_NEQ expression { $$ = new ComparisonAST( $1, $3,"!="); }
+    | comparison tok_And comparison { $$ = new LogicalOpAST($1, $3, "AND"); }
+    | comparison tok_Or comparison { $$ = new LogicalOpAST($1, $3, "OR"); }
+    |  tok_Not comparison { $$ = new LogicalOpAST(nullptr, $2, "NOT"); }
 ;
 
 statement_block: 
