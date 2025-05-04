@@ -83,6 +83,7 @@ std::vector<OutputAST*>* output_list;
 %left tok_AddOne tok_SubOne
 %right UMINUS
 
+
 %type <integer_literal> opt_step integer_expr
 %type <ast_node> statement expression term
 %type <ast_node> if_stmt for_stmt while_stmt repeat_stmt output
@@ -127,31 +128,35 @@ root:
 ;
 
 statements:
-    statement_line { 
-        fprintf(stderr, "DEBUG: Creating new statements list with single statement_line\n"); 
-        $$ = $1; 
+    statement_line {
+        fprintf(stderr, "DEBUG: Creating new statement_lines list\n");
+        $$ = $1;
     }
     | statements statement_line {
-        fprintf(stderr, "DEBUG: Appending statement_line to existing statements list\n");
-        fprintf(stderr, "DEBUG: Current statements size: %zu\n", $1->size());
+        fprintf(stderr, "DEBUG: Appending to statement_lines list\n");
+        fprintf(stderr, "DEBUG: Current size: %zu\n", $1->size());
         $$ = $1;
-        $$->insert($$->end(), $2->begin(), $2->end());
-        fprintf(stderr, "DEBUG: New statements size after append: %zu\n", $$->size());
-        delete $2;
+        if ($2) {
+            $$->insert($$->end(), $2->begin(), $2->end());
+            delete $2;
+        }
+        fprintf(stderr, "DEBUG: New size: %zu\n", $$->size());
     }
 ;
 
 statement_line:
-    statement opt_newline {
+    opt_newline statement opt_newline {
         $$ = new std::vector<ASTNode*>();
-        if ($1) $$->push_back($1);
+        if ($2) $$->push_back($2);
     }
 ;
 
 opt_newline:
-    tok_Newline
-  | /* empty */
+    /* empty */
+    | tok_Newline opt_newline
 ;
+
+
 
 
 statement:
@@ -248,8 +253,8 @@ input:
 
 expression:
       term { $$ = $1; }
-    | expression tok_AddOne { $$ = new BinaryOpAST($1, nullptr, "++"); }
-    | expression tok_SubOne { $$ = new BinaryOpAST($1, nullptr, "--"); }
+    | expression tok_AddOne %prec UMINUS { $$ = new BinaryOpAST($1, nullptr, "++"); }
+    | expression tok_SubOne %prec UMINUS { $$ = new BinaryOpAST($1, nullptr, "--"); }
     | expression '+' expression { $$ = new BinaryOpAST($1, $3, "+"); }
     | expression '-' expression { $$ = new BinaryOpAST($1, $3, "-"); }
     | expression '*' expression { $$ = new BinaryOpAST($1, $3, "*"); }

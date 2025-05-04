@@ -6,7 +6,4 @@ FOR INDEX = 0 TO 30
     INPUT x
     Numbers[INDEX]=x
 NEXT INDEX 
-FOR INDEX = 0 TO 30
-    OUTPUT Numbers[INDEX]
-NEXT INDEX 
 
