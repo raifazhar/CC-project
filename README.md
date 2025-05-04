@@ -32,7 +32,7 @@ make ir
 
 This will generate the LLVM IR in build/ir/output.ll.
 
-##🚀 Optimizing LLVM IR
+## 🚀 Optimizing LLVM IR
 
 To optimize the LLVM IR, run:
 
