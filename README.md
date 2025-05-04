@@ -2,7 +2,7 @@
 
 A simple compiler for the SSC language using Flex, Bison, and LLVM.
 
-## Build Structure
+## 📁 Build Structure
 
 The build process is organized into the following directories:
 
@@ -12,79 +12,93 @@ The build process is organized into the following directories:
   - `ir/`: LLVM IR files
   - `obj/`: Object files
 
-## Building the Compiler
+## 🛠️ Building the Compiler
 
 To build the compiler, run:
 
 ```bash
 make
-```
+This will compile the compiler and place the executable in the build/bin/ directory.
 
-This will compile the compiler and place the executable in the `build/bin/` directory.
-
-## Generating LLVM IR
-
+⚙️ Generating LLVM IR
 To generate LLVM IR from an input file, run:
 
-```bash
+bash
+Copy
+Edit
 make ir
-```
+This will generate the LLVM IR in build/ir/output.ll.
 
-This will generate the LLVM IR in `build/ir/output.ll`.
-
-## Optimizing LLVM IR
-
+🚀 Optimizing LLVM IR
 To optimize the LLVM IR, run:
 
-```bash
+bash
+Copy
+Edit
 make opt
-```
+This will generate the optimized LLVM IR in build/ir/output_opt.ll.
 
-This will generate the optimized LLVM IR in `build/ir/output_opt.ll`.
-
-## Running the Compiler
-
+▶️ Running the Compiler
 To run the compiler on an input file, compile the IR, and run the resulting executable, run:
 
-```bash
+bash
+Copy
+Edit
 make run
-```
-
 This will:
-1. Generate LLVM IR from the input file
-2. Compile the IR to an executable
-3. Run the executable
 
-## Debugging
+Generate LLVM IR from the input file
 
+Compile the IR to an executable
+
+Run the executable
+
+🐞 Debugging
 To run the compiler without redirecting output (for debugging), run:
 
-```bash
+bash
+Copy
+Edit
 make debug
-```
-
-## Cleaning Up
-
+🧹 Cleaning Up
 To clean up all generated files, run:
 
-```bash
+bash
+Copy
+Edit
 make clean
-```
-
 To clean up all build files and output, run:
 
-```bash
+bash
+Copy
+Edit
 make distclean
-```
-
-## Help
-
+🆘 Help
 To display help information, run:
 
-```bash
+bash
+Copy
+Edit
 make help
+📚 Documentation
+
+📄 Build Table — Overview of files generated during the build process.
+
+📄 Compiler Documentation — Internal architecture and compilation pipeline.
+
+📄 Bison Grammar — Details of the Bison grammar used for parsing SSC.
+
+yaml
+Copy
+Edit
+
+---
+
+Let me know if you'd like any badges, images, or visual diagrams included too!
+
+
+
+
+
+
 ```
-
-## Build Table
-
-For a comprehensive overview of all files created during the build process, see [BUILD_TABLE.md](BUILD_TABLE.md). 

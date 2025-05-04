@@ -1,5 +1,5 @@
 DECLARE i:INTEGER
-i = 2
+i = 0
 REPEAT
     OUTPUT i
     i = i + 1

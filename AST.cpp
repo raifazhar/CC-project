@@ -166,7 +166,6 @@ Value *ArrayAST::codegen()
     return alloca;
 }
 
-
 Value *ArrayAssignmentAST::codegen()
 {
     DEBUG_PRINT_FUNCTION();
@@ -544,7 +543,7 @@ Value *FuncAST::codegen()
     FunctionType *funcType = FunctionType::get(FuncType, paramTypes, false);
     Function *function = Function::Create(funcType, Function::ExternalLinkage, Identifier->name, *module);
 
-        BasicBlock *prevInsertBlock = builder.GetInsertBlock();
+    BasicBlock *prevInsertBlock = builder.GetInsertBlock();
     // Create the entry block for the function
     BasicBlock *entryBB = BasicBlock::Create(context, "entry", function);
     builder.SetInsertPoint(entryBB);
@@ -568,7 +567,7 @@ Value *FuncAST::codegen()
     statementsBlock->codegen();
 
     // Return void
-    globalSymbolTable->enterScope();
+    globalSymbolTable->exitScope();
     builder.SetInsertPoint(prevInsertBlock);
     return function;
 }
@@ -619,8 +618,10 @@ Value *FuncCallAST::codegen()
 Value *LogicalOpAST::codegen()
 {
     DEBUG_PRINT_FUNCTION();
-    if(cmpOp=="NOT"){
-        if(!RHS){
+    if (cmpOp == "NOT")
+    {
+        if (!RHS)
+        {
             errs() << "NOT operation requires a right-hand side operand\n";
             return nullptr;
         }
@@ -629,39 +630,47 @@ Value *LogicalOpAST::codegen()
         {
             return nullptr;
         }
-        if(!rhsVal->getType()->isIntegerTy(1)){
-           rhsVal=builder.CreateICmpEQ(rhsVal, ConstantInt::get(rhsVal->getType(), 0), "tobool");
+        if (!rhsVal->getType()->isIntegerTy(1))
+        {
+            rhsVal = builder.CreateICmpEQ(rhsVal, ConstantInt::get(rhsVal->getType(), 0), "tobool");
         }
         return builder.CreateNot(rhsVal, "nottmp");
     }
-    if (!LHS || !RHS) {
+    if (!LHS || !RHS)
+    {
         errs() << "Error: NULL operand for binary logical operator: " << cmpOp << "\n";
         return nullptr;
     }
     Value *lhsVal = LHS->codegen();
     Value *rhsVal = RHS->codegen();
-    if (!lhsVal || !rhsVal) return nullptr;
+    if (!lhsVal || !rhsVal)
+        return nullptr;
 
-    if (!lhsVal->getType()->isIntegerTy(1)) {
+    if (!lhsVal->getType()->isIntegerTy(1))
+    {
         lhsVal = builder.CreateICmpNE(
-            lhsVal, 
+            lhsVal,
             ConstantInt::get(lhsVal->getType(), 0),
-            "tobool"
-        );
+            "tobool");
     }
-    
-    if (!rhsVal->getType()->isIntegerTy(1)) {
+
+    if (!rhsVal->getType()->isIntegerTy(1))
+    {
         rhsVal = builder.CreateICmpNE(
-            rhsVal, 
+            rhsVal,
             ConstantInt::get(rhsVal->getType(), 0),
-            "tobool"
-        );
+            "tobool");
     }
-    if (cmpOp == "AND") {
+    if (cmpOp == "AND")
+    {
         return builder.CreateAnd(lhsVal, rhsVal, "andtmp");
-    } else if (cmpOp == "OR") {
+    }
+    else if (cmpOp == "OR")
+    {
         return builder.CreateOr(lhsVal, rhsVal, "ortmp");
-    } else {
+    }
+    else
+    {
         errs() << "Unknown logical operator: " << cmpOp << "\n";
         return nullptr;
     }
