@@ -18,6 +18,8 @@ To build the compiler, run:
 
 ```bash
 make
+```
+
 This will compile the compiler and place the executable in the build/bin/ directory.
 
 ⚙️ Generating LLVM IR
@@ -96,9 +98,6 @@ Edit
 
 Let me know if you'd like any badges, images, or visual diagrams included too!
 
-
-
-
-
+```
 
 ```
