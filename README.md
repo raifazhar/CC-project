@@ -68,8 +68,6 @@ make debug
 To clean up all generated files, run:
 
 ```bash
-Copy
-Edit
 make clean
 ```
 
