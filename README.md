@@ -32,3 +32,10 @@ A simple pseudocode compiler for A-level and O-level students, enabling them to 
 - 📄 [Bison Grammar](ASTLogic.md) — Details of the LLVM used for SSC.
 - 📄 [Compiler Documentation](SSC_Compiler_Documentation.md) — Internal architecture and compilation pipeline.
 - 📄 [Build Table](BUILD_TABLE.md) — Overview of files generated during the build process.
+
+## Group Member
+
+- L22-6807 Raif Azhar
+- L22-6796 Arham Ali
+- L22-6699 Muhammad Bilal
+- L22-6656 Abdullah Saqib
