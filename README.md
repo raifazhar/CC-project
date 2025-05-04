@@ -27,8 +27,6 @@ This will compile the compiler and place the executable in the build/bin/ direct
 To generate LLVM IR from an input file, run:
 
 ```bash
-Copy
-Edit
 make ir
 ```
 
@@ -39,8 +37,6 @@ This will generate the LLVM IR in build/ir/output.ll.
 To optimize the LLVM IR, run:
 
 ```bash
-Copy
-Edit
 make opt
 ```
 
@@ -51,8 +47,6 @@ This will generate the optimized LLVM IR in build/ir/output_opt.ll.
 To run the compiler on an input file, compile the IR, and run the resulting executable, run:
 
 ```bash
-Copy
-Edit
 make run
 ```
 
@@ -66,8 +60,6 @@ Run the executable
 To run the compiler without redirecting output (for debugging), run:
 
 ```bash
-Copy
-Edit
 make debug
 ```
 
@@ -84,8 +76,6 @@ make clean
 To clean up all build files and output, run:
 
 ```bash
-Copy
-Edit
 make distclean
 ```
 
@@ -94,8 +84,6 @@ make distclean
 To display help information, run:
 
 ```bash
-Copy
-Edit
 make
 ```
 
