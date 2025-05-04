@@ -29,7 +29,7 @@ A simple pseudocode compiler for A-level and O-level students, enabling them to 
 ## 📚 Documentation
 
 - 📄 [Bison Grammar](SSC_Bison_Grammar.md) — Details of the Bison grammar used for parsing SSC.
-- 📄 [Bison Grammar](ASTLogic.md) — Details of the LLVM used for SSC.
+- 📄 [AST Logic](ASTLogic.md) — Details of the LLVM used for SSC.
 - 📄 [Compiler Documentation](SSC_Compiler_Documentation.md) — Internal architecture and compilation pipeline.
 - 📄 [Build Table](BUILD_TABLE.md) — Overview of files generated during the build process.
 
