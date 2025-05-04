@@ -139,10 +139,11 @@ class ArrayAST : public ASTNode
 public:
     IdentifierAST *identifier;
     TypeAST *type;
-    size_t size; // Size of the array
+    size_t firstIndex; // Size of the array
+    size_t lastIndex;
 
-    ArrayAST(IdentifierAST *id, TypeAST *t, size_t size)
-        : identifier(id), type(t), size(size) {}
+    ArrayAST(IdentifierAST *id, TypeAST *t, size_t first,size_t last)
+        : identifier(id), type(t), firstIndex(first), lastIndex(last) {}
     Value *codegen() override;
 };
 
@@ -232,8 +233,6 @@ public:
     }
 };
 
-
-
 class ComparisonAST : public ASTNode
 {
 public:
@@ -249,9 +248,8 @@ public:
 class LogicalOpAST : public ComparisonAST
 {
 public:
-
     LogicalOpAST(ASTNode *left, ASTNode *right, const std::string &operation)
-        :  ComparisonAST(left, right, operation) {}
+        : ComparisonAST(left, right, operation) {}
     Value *codegen() override;
 };
 // --- Statements ---

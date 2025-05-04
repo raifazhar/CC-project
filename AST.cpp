@@ -154,13 +154,13 @@ Value *ArrayAST::codegen()
     llvm::Type *elementType = TypeAST::typeMap.at(type->type)(context);
 
     // 2. Create the array type [size x elementType]
-    llvm::ArrayType *arrayType = llvm::ArrayType::get(elementType, size);
+    llvm::ArrayType *arrayType = llvm::ArrayType::get(elementType, lastIndex);
 
     // 3. Create an alloca of the array type
     AllocaInst *alloca = builder.CreateAlloca(arrayType, nullptr, identifier->name);
 
     // 4. Set it in the symbol table
-    globalSymbolTable->setSymbol(identifier->name, alloca, arrayType, true, 0, size - 1);
+    globalSymbolTable->setSymbol(identifier->name, alloca, arrayType, true, firstIndex, lastIndex - 1);
 
     llvm::errs() << "Declaration codegen completed for: " << identifier->name << "\n";
     return alloca;
@@ -221,74 +221,53 @@ Value *ArrayAssignmentAST::codegen()
 
 Value *OutputAST::codegen()
 {
-    // ————————————————————————————————————————————————
-    // 1) Make sure the global 'builder' is pointing somewhere valid
-    // ————————————————————————————————————————————————
     if (!builder.GetInsertBlock())
     {
-        // If we haven't yet set an insertion point, drop into the
-        // entry block of 'mainFunction' (or whatever Function you want).
         BasicBlock &entry = mainFunction->getEntryBlock();
         builder.SetInsertPoint(&entry, entry.end());
     }
-
-    // From here on we can just use 'module', 'builder', and 'mainFunction'
-    // that were declared extern in your driver.
-    // ————————————————————————————————————————————————
-    // 2) Declare-or-fetch printf
-    // ————————————————————————————————————————————————
     Function *printfFunc = module->getFunction("printf");
     if (!printfFunc)
     {
         auto *printfTy = FunctionType::get(
-            builder.getInt32Ty(),                     // int
-            PointerType::get(builder.getInt8Ty(), 0), // char*
-            /*isVarArg=*/true);
+            builder.getInt32Ty(),
+            PointerType::get(builder.getInt8Ty(), 0),
+            true);
         printfFunc = Function::Create(
             printfTy,
             Function::ExternalLinkage,
             "printf",
             module);
     }
-
-    // ————————————————————————————————————————————————
-    // 3) Build the format string and argument list
-    // ————————————————————————————————————————————————
     std::string fmt;
     std::vector<Value *> args;
     for (auto &exp : expressions)
     {
         Value *v = exp->codegen();
         if (!v)
-            return nullptr; // real error
+            return nullptr;
 
-        if (v->getType()->isIntegerTy())
+        if (v->getType()->isIntegerTy(32))
             fmt += "%d";
         else if (v->getType()->isDoubleTy())
             fmt += "%f";
+        else if (v->getType()->isIntegerTy(8))
+            fmt += "%c";
         else if (v->getType()->isPointerTy())
             fmt += "%s";
 
         args.push_back(v);
     }
 
-    // ————————————————————————————————————————————————
-    // 4) Make a global format-string constant
-    // ————————————————————————————————————————————————
     Constant *fmtConst = ConstantDataArray::getString(
-        context, fmt + "\n", /*addNull=*/true);
+        context, fmt + "\n", true);
     auto *fmtGV = new GlobalVariable(
         *module,
-        fmtConst->getType(),
-        /*isConstant=*/true,
+        fmtConst->getType(), true,
         GlobalValue::PrivateLinkage,
         fmtConst);
-    Value *fmtPtr = builder.CreateConstGEP1_32(
-        fmtGV->getValueType(), fmtGV, 0);
+    Value *fmtPtr = builder.CreateGlobalStringPtr(fmt, ".fmt");
 
-    // ————————————————————————————————————————————————
-    // 5) Emit the call, capture it, and return it
-    // ————————————————————————————————————————————————
     args.insert(args.begin(), fmtPtr);
     CallInst *call = builder.CreateCall(printfFunc, args);
     return call;
@@ -322,6 +301,12 @@ Value *InputAST::codegen()
         fmt = "%d";
     else if (varType->isDoubleTy())
         fmt = "%lf";
+    else if (varType->isIntegerTy(8))
+        fmt = " %c";
+    else if (varType->isPointerTy())
+    {
+        fmt = "%s";
+    }
     else
     {
         errs() << "Error: unsupported input type for '" << Identifier->name << "'\n";

@@ -187,11 +187,11 @@ declaration:
         free($2);
     }
     | tok_Declare tok_Identifier ':' tok_Array'[' tok_Integer_Literal ':' tok_Integer_Literal ']' tok_Of type {
-        $$ = new ArrayAST(new IdentifierAST(std::string($2)), $11, $8);
+        $$ = new ArrayAST(new IdentifierAST(std::string($2)), $11,$6, $8);
         free($2);
     }
     | tok_Declare tok_Identifier ':' tok_Array'[' ':' tok_Integer_Literal ']' tok_Of type {
-        $$ = new ArrayAST(new IdentifierAST(std::string($2)), $10, $7);
+        $$ = new ArrayAST(new IdentifierAST(std::string($2)), $10,  0,$7);
         free($2);
     }
 ;
