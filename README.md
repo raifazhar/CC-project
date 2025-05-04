@@ -1,4 +1,4 @@
-# SSC Compiler
+# PseudoLang Compiler
 
 A simple pseudocode compiler for A-level and O-level students, enabling them to run their code with essential features.
 
