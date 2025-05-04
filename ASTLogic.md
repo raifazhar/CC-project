@@ -81,9 +81,9 @@ Generates a `scanf` call:
 - Determines format string using variable type
 
 - Gets pointer via `globalSymbolTable->lookupSymbol(Identifier->name)`
-- 
+  
 - Get input type `globalSymbolTable->getSymbolType(Identifier->name)`
-- 
+  
 - - Uses `builder.CreateGlobalStringPtr(fmt, ".fmt")` for format
 
 - Calls `scanf` with `builder.CreateCall(scanfFunc, {fmtPtr, varPtr});`
