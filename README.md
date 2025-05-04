@@ -91,14 +91,4 @@ make
 - 📄 [Compiler Documentation](SSC_Compiler_Documentation.md) — Internal architecture and compilation pipeline.
 - 📄 [Build Table](BUILD_TABLE.md) — Overview of files generated during the build process.
 
-yaml
-Copy
-Edit
 
----
-
-Let me know if you'd like any badges, images, or visual diagrams included too!
-
-```
-
-```
