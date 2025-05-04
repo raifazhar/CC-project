@@ -21,107 +21,138 @@ The `TypeAST::typeMap` defines mappings from high-level types (e.g., `INTEGER`, 
 
 ### `IdentifierAST`
 
-Looks up a variable in the symbol table and returns a `load` instruction unless it’s a function argument.
+Looks up a variable in the symbol table using `globalSymbolTable->lookupSymbol(name)` and returns a `load` instruction unless it’s a function argument (already a pointer).
 
 ### `DeclarationAST`
 
 Declares a scalar variable:
 
-- Allocates memory using `alloca`
-- Registers the variable in the symbol table
+- Allocates memory using `builder.CreateAlloca(...)`
+
+- Registers the variable in the symbol table using `addSymbol(name, value)`
 
 ### `AssignmentAST`
 
 Assigns a value to a variable:
 
+- Looks up pointer using `lookupSymbol(name)`
+
 - Type checks value against the declared type
-- Stores the result with `store`
+
+- Stores the result with `builder.CreateStore(...)`
 
 ### `ArrayAST`
 
 Declares a static-sized array:
 
-- Allocates space for `[N x Type]`
-- Stores the metadata in the symbol table
+- Allocates space for `[N x Type]` using `ArrayType::get(...)`
+
+- Uses `CreateAlloca(...)` for storage
+
+- Stores metadata in the symbol table using `addSymbol(...)`
 
 ### `ArrayAssignmentAST`
 
 Assigns a value to an array element:
 
-- Computes index and gets pointer via symbol table
-- Type checks element type
-- Stores the value
+- Computes index with `CreateGEP(...)`
+
+- Looks up base pointer with `lookupSymbol(...)`
+
+- Stores the value using `CreateStore(...)`
 
 ### `OutputAST`
 
 Generates a `printf` call:
 
 - Determines format string based on expression types
-- Emits global format string and call to `printf`
+
+- Uses `builder.CreateGlobalStringPtr(...)` for format
+
+- Calls `printf` with `builder.CreateCall(...)`
 
 ### `InputAST`
 
 Generates a `scanf` call:
 
-- Uses variable’s LLVM type to pick correct format string
+- Determines format string using variable type
+
+- Gets pointer via `lookupSymbol(...)`
+
+- Calls `scanf` with `CreateCall(...)`
 
 ### `BinaryOpAST`
 
 Generates binary operations (e.g., `+`, `-`, `AND`):
 
-- Delegates to `performBinaryOperation(lhs, rhs, op)`
+- Delegates logic to helper function `performBinaryOperation(lhs, rhs, op)`
 
 ### `ComparisonAST`
 
 Generates comparison operations (e.g., `=`, `<`, `>=`):
 
-- Delegates to `performComparison(lhs, rhs, cmpOp)`
+- Delegates logic to helper function `performComparison(lhs, rhs, cmpOp)`
 
 ### `IfAST`
 
 Implements branching logic:
 
-- Creates `if.then`, `if.else`, and `if.end` blocks
-- Generates code for both blocks and merges control flow
+- Creates `if.then`, `if.else`, and `if.end` blocks using `BasicBlock::Create(...)`
+
+- Branching via `CreateCondBr(...)` and `CreateBr(...)`
 
 ### `ForAST`
 
 Generates a for-loop structure:
 
-- Has blocks for condition, loop body, and end
-- Emits increment via `step` expression
+- Initializes iterator with `CreateStore(...)`
+
+- Condition, body, and increment blocks created using `BasicBlock::Create(...)`
+
+- Increments via `CreateAdd(...)` or `CreateFAdd(...)`
 
 ### `WhileAST`
 
 Generates a while-loop:
 
 - Evaluates condition at top
-- Branches back to loop body if condition is true
+
+- Uses conditional branch to enter or exit loop
+
+- Emits loop using `BasicBlock` and `CreateCondBr(...)`
 
 ### `RepeatAST`
 
 Generates a repeat-until loop:
 
-- Body executes before condition
-- Negates condition and branches appropriately
+- Executes body before condition check
+
+- Negates condition and branches back as needed
+
+- **Functions used**: `CreateBr(...)`, `CreateICmpEQ(...)`/`CreateFCmpOEQ(...)`
 
 ### `ProcedureAST`
 
 Defines a void-returning function:
 
-- Creates function with parameters
-- Allocates and stores arguments into `alloca`
-- Generates body code and ends with `ret void`
+- Creates function with `Function::Create(...)`
+
+- Allocates and stores arguments using `CreateAlloca(...)` and `CreateStore(...)`
+
+- Emits body and returns via `CreateRetVoid()`
 
 ### `FuncAST`
 
 Defines a function that returns a value:
 
 - Same setup as `ProcedureAST`
-- Returns a typed value via `ret <value>`
+
+- Returns result via `CreateRet(...)`
 
 ---
 
 ## Debugging
 
 A `DEBUG_PRINT_FUNCTION()` macro logs the function entry and current IR insertion point to a file (`llvm_debug.output.txt`).
+
+Useful for tracing code generation and symbol resolution steps during compilation.
