@@ -1,28 +1,33 @@
 # SSC Compiler
 
-A simple compiler for the SSC language using Flex, Bison, and LLVM.
+A simple pseudocode compiler for A-level and O-level students, enabling them to run their code with essential features.
 
-## Project Achievements
+## 🎯 Goals
 
-The SSC compiler project has successfully implemented the following:
+- **Create a simple pseudocode compiler** to help A-level and O-level students run their code.
+- Implement basic programming constructs like:
+  - Functions
+  - Input/Output
+  - Loops (While, For)
+  - Conditional Statements (If, Repeat)
+  - Logical Operators
+- Focus on simplicity and ease of use for educational purposes.
+  
+## 🎉 Achievements
 
-- **Custom Compiler for SSC Language**: A fully functional compiler for the SSC language using the Flex lexer, Bison parser, and LLVM for code generation.
-- **LLVM IR Generation**: The compiler translates SSC code into LLVM Intermediate Representation (IR), enabling further optimizations and compilation into machine code.
-- **Modular Compiler Architecture**: The project uses a modular approach with separate components for lexical analysis, syntax parsing, semantic analysis, optimization, and code generation.
+- Developed a working pseudocode compiler that can execute basic pseudocode.
+- Successfully integrated key features like loops, conditionals, and basic logical operations.
+- The compiler is functional and enables students to run pseudocode directly with the provided constructs.
+- The system is modular, with clear separation of concerns (lexical analysis, parsing, and code generation).
 
-## Goals
+## ❌ Not Included
 
-The key goals for the SSC compiler project include:
+- Classes
+- User-defined data types
+- String operators
 
-- **Extend Language Features**: Add new constructs and features to the SSC language to support more complex programs.
-- **Optimization**: Improve the LLVM IR optimization techniques to enhance the performance of compiled programs.
-- **Cross-Platform Compilation**: Ensure that the compiler can be used to generate executables for different platforms using LLVM's capabilities.
-- **Documentation**: Provide comprehensive documentation for users and developers, covering both the architecture of the compiler and the grammar of the SSC language.
+## 📚 Documentation
 
-## Documentation
-
-For detailed information on how to build, run, and optimize the SSC compiler, refer to:
-
-- 📄 [SSC Compiler Documentation](SSC_Compiler_Documentation.md)
-- 📄 [Bison Grammar](SSC_Bison_Grammar.md)
-- 📄 [Build Table](BUILD_TABLE.md)
+- 📄 [Bison Grammar](SSC_Bison_Grammar.md) — Details of the Bison grammar used for parsing SSC.
+- 📄 [Compiler Documentation](SSC_Compiler_Documentation.md) — Internal architecture and compilation pipeline.
+- 📄 [Build Table](BUILD_TABLE.md) — Overview of files generated during the build process.
