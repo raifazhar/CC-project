@@ -476,6 +476,7 @@ Value *WhileAST::codegen()
 Value *RepeatAST::codegen()
 {
     DEBUG_PRINT_FUNCTION();
+    globalSymbolTable->enterScope();
     Function *function = builder.GetInsertBlock()->getParent();
     BasicBlock *bodyBB = BasicBlock::Create(context, "repeat.body", function);
     BasicBlock *condBB = BasicBlock::Create(context, "repeat.cond", function);
@@ -500,6 +501,7 @@ Value *RepeatAST::codegen()
 
     // Continue with end block
     builder.SetInsertPoint(endBB);
+    globalSymbolTable->exitScope();
     return nullptr;
 }
 Value *ProcedureAST::codegen()
@@ -539,7 +541,7 @@ Value *ProcedureAST::codegen()
 
     // Return void
     builder.CreateRetVoid();
-    globalSymbolTable->enterScope();
+    globalSymbolTable->exitScope();
     builder.SetInsertPoint(prevInsertBlock);
     return function;
 }
