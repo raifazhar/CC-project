@@ -5,5 +5,5 @@ FOR INDEX = 0 TO 30
     OUTPUT "INPUT " , INDEX , " : " 
     INPUT x
     Numbers[INDEX]=x
+    x=Numbers[INDEX]
 NEXT INDEX 
-

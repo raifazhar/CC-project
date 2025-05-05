@@ -142,7 +142,7 @@ public:
     size_t firstIndex; // Size of the array
     size_t lastIndex;
 
-    ArrayAST(IdentifierAST *id, TypeAST *t, size_t first,size_t last)
+    ArrayAST(IdentifierAST *id, TypeAST *t, size_t first, size_t last)
         : identifier(id), type(t), firstIndex(first), lastIndex(last) {}
     Value *codegen() override;
 };
@@ -164,7 +164,6 @@ class ArrayAssignmentAST : public ASTNode
 public:
     IdentifierAST *identifier;
     ASTNode *expression;
-    // TypeAST *declaredType;
     ASTNode *index;
 
     ArrayAssignmentAST(IdentifierAST *id, ASTNode *expr, ASTNode *index)
@@ -172,6 +171,17 @@ public:
     Value *codegen() override;
 };
 
+class ArrayAccessAST : public ASTNode
+{
+    IdentifierAST *identifier;
+    ASTNode *index;
+
+public:
+    ArrayAccessAST(IdentifierAST *id, ASTNode *index)
+        : identifier(id), index(index) {}
+
+    Value *codegen() override;
+};
 class OutputAST : public ASTNode
 {
 public:

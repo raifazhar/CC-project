@@ -221,6 +221,7 @@ term:
     | tok_Bool_Literal { $$ = new BooleanLiteralAST($1); }
     | tok_Char_Literal { $$ = new CharLiteralAST($1); }
     | tok_Date_Literal { $$ = new DateLiteralAST(std::string($1)); free($1); }
+    | tok_Identifier '[' expression ']' { $$ = new ArrayAccessAST(new IdentifierAST(std::string($1)), $3); free($1);}
 ;
 
 
@@ -247,7 +248,7 @@ output:
 ;
 
 input:
-    tok_Input tok_Identifier { errs()<<"Input int working\n"; $$= new InputAST(new IdentifierAST($2));}
+    tok_Input tok_Identifier { $$= new InputAST(new IdentifierAST($2));}
 ;
 
 

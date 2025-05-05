@@ -219,6 +219,35 @@ Value *ArrayAssignmentAST::codegen()
     return val;
 }
 
+Value *ArrayAccessAST::codegen()
+{
+    DEBUG_PRINT_FUNCTION();
+
+    // 1. Get the index value (like 'i' in arr[i])
+    Value *indexValue = index->codegen();
+    if (!indexValue)
+    {
+        llvm::errs() << "Invalid index expression\n";
+        return nullptr;
+    }
+
+    // 2. Look up the pointer to the array element
+    Value *elementPtr = globalSymbolTable->lookupSymbol(identifier->name, indexValue);
+    if (!elementPtr)
+    {
+        llvm::errs() << "Array access failed: " << identifier->name << "\n";
+        return nullptr;
+    }
+
+    // 3. Get the type of the element, not the array
+    llvm::Type *arrayType = globalSymbolTable->getSymbolType(identifier->name);
+    llvm::Type *elementType = arrayType->isArrayTy() ? arrayType->getArrayElementType() : arrayType;
+
+    // 4. Load and return the value at that index
+    Value *loadedValue = builder.CreateLoad(elementType, elementPtr);
+    return loadedValue;
+}
+
 Value *OutputAST::codegen()
 {
     if (!builder.GetInsertBlock())
