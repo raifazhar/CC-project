@@ -6,9 +6,15 @@ DECLARE x : INTEGER
 x=30
 DECLARE INDEX : INTEGER
 FOR INDEX = 0 TO 30
+
+
     OUTPUT "INPUT " , INDEX , " : " 
     INPUT x
     Numbers[INDEX]=x
     x=Numbers[INDEX]
+
+
     OUTPUT Numbers[INDEX]
+
+
 NEXT INDEX

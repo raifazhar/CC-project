@@ -35,90 +35,87 @@ void debug_indent(int spaces, const char* action) {
 
 %%
 
-<INITIAL>[ \t]* {
-    /* At start of input, handle any indentation */
-    current_indent = 0;
-    for(char *p = yytext; *p; p++) {
-        if(*p == ' ') current_indent++;
-        else if(*p == '\t') current_indent = (current_indent + INDENT_WIDTH) & ~(INDENT_WIDTH-1);
-    }
-    BEGIN(indent);
-}
-
 <INITIAL>. {
     unput(*yytext);  /* Return the character to the input */
+    indent_stack.push(0);  /* Initialize with zero indentation */
+    start_of_line = true;
     BEGIN(indent);   /* Start in indent mode */
 }
 
-<INITIAL,normal>\n {
-    fprintf(stderr, "DEBUG: Newline detected\n");
+<normal>\n+ {
     debug_token("NEWLINE", "\\n");
-    current_indent = 0;  /* Reset indent counter */
-    start_of_line = true;  /* Reset start_of_line flag */
+    start_of_line = true;
+    current_indent = 0;
     BEGIN(indent);
     return tok_Newline;
 }
 
 <indent>[ ] {
-    current_indent++;
-    fprintf(stderr, "DEBUG: Space in indent: %d\n", current_indent);
+    if(start_of_line) current_indent++;
 }
 
 <indent>\t {
-    current_indent = (current_indent + INDENT_WIDTH) & ~(INDENT_WIDTH-1);
-    fprintf(stderr, "DEBUG: Tab in indent: %d\n", current_indent);
+    if(start_of_line) current_indent = (current_indent + INDENT_WIDTH) & ~(INDENT_WIDTH-1);
 }
 
 <indent>\n+ {
-    current_indent = 0;  /* Reset indent for blank lines */
-    fprintf(stderr, "DEBUG: Empty line in indent mode\n");
+    /* Empty line - reset indentation counter but keep state */
+    debug_token("NEWLINE", "\\n");
+    current_indent = 0;
+    start_of_line = true;
     return tok_Newline;
-}
-
-<INITIAL,indent>^[^ \t\n]    {  /* Handle line with no indent */
-    if(start_of_line) {
-        unput(*yytext);
-        start_of_line = false;
-        int previous = indent_stack.empty() ? 0 : indent_stack.top();
-        if(current_indent < previous) {
-            while(!indent_stack.empty() && current_indent < indent_stack.top()) {
-                dedent_buffer.push(tok_Dedent);
-                indent_stack.pop();
-            }
-            if(!dedent_buffer.empty()) {
-                int tok = dedent_buffer.front();
-                dedent_buffer.pop();
-                return tok;
-            }
-        }
-        current_indent = 0;
-        BEGIN(normal);
-    }
 }
 
 <indent>[^ \t\n] {
     unput(*yytext);  /* Put back the non-whitespace character */
-    fprintf(stderr, "DEBUG: Non-whitespace in indent, current: %d, previous: %d\n", 
-            current_indent, indent_stack.empty() ? 0 : indent_stack.top());
+    debug_indent(current_indent, "Processing");
     
-    if (!indent_stack.empty() && current_indent < indent_stack.top()) {
+    int previous = indent_stack.empty() ? 0 : indent_stack.top();
+    
+    if (current_indent > previous) {
+        debug_indent(current_indent, "INDENT");
+        indent_stack.push(current_indent);
+        start_of_line = false;
+        BEGIN(normal);
+        debug_token("INDENT", "");  /* Add token debug for indent */
+        return tok_Indent;
+    } 
+    else if (current_indent < previous) {
+        /* Generate DEDENT tokens */
         while (!indent_stack.empty() && current_indent < indent_stack.top()) {
+            debug_indent(indent_stack.top(), "DEDENT");
             indent_stack.pop();
             dedent_buffer.push(tok_Dedent);
         }
+
+        
+        /* Check if indent levels match */
+        if (!indent_stack.empty() && current_indent != indent_stack.top()) {
+            fprintf(stderr, "ERROR: Inconsistent indentation at line %d\n", yylineno);
+            yyerror("Inconsistent indentation");
+        }
+        
         if (!dedent_buffer.empty()) {
             int tok = dedent_buffer.front();
             dedent_buffer.pop();
+            
+            debug_token("DEDENT", "");  /* Add token debug for dedent */
+            
+            /* Stay in indent state if more dedents to process */
             if (dedent_buffer.empty()) {
-                BEGIN(normal);
+                /* Only when all dedents are processed do we check
+                   if we should switch to normal state */
+                if (current_indent == indent_stack.top()) {
+                    start_of_line = false;
+                    BEGIN(normal);
+                }
             }
             return tok;
         }
-    } else if (current_indent > (indent_stack.empty() ? 0 : indent_stack.top())) {
-        indent_stack.push(current_indent);
-        BEGIN(normal);
-        return tok_Indent;
     }
+    
+    /* Same indentation level */
+    start_of_line = false;
     BEGIN(normal);
 }
 

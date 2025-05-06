@@ -102,14 +102,14 @@
 %%
 
 root:
-    statements {
-        fprintf(stderr, "Processing %zu statements\n", $1->size());
+    opt_newline statements  opt_newline {
+        fprintf(stderr, "Processing %zu statements\n", $2->size());
 
         globalSymbolTable->enterScope();
 
         bool hasError = false;
 
-        for (ASTNode* node : *$1) {
+        for (ASTNode* node : *$2) {
             fprintf(stderr, "Codegen for node type: %s\n", typeid(*node).name());
             Value* result = node->codegen();
 
@@ -117,7 +117,7 @@ root:
         }
 
         globalSymbolTable->exitScope();
-        delete $1;
+        delete $2;
 
         addReturnInstr();
         fprintf(stderr, "Added return instruction\n");
@@ -132,22 +132,22 @@ statements:
         fprintf(stderr, "DEBUG: Creating new statement_lines list\n");
         $$ = $1;
     }
-    | statements statement_line {
+    | statements tok_Newline statement_line {
         fprintf(stderr, "DEBUG: Appending to statement_lines list\n");
         fprintf(stderr, "DEBUG: Current size: %zu\n", $1->size());
         $$ = $1;
-        if ($2) {
-            $$->insert($$->end(), $2->begin(), $2->end());
-            delete $2;
+        if ($3) {
+            $$->insert($$->end(), $3->begin(), $3->end());
+            delete $3;
         }
         fprintf(stderr, "DEBUG: New size: %zu\n", $$->size());
     }
 ;
 
 statement_line:
-    opt_newline statement opt_newline {
+   statement {
         $$ = new std::vector<ASTNode*>();
-        if ($2) $$->push_back($2);
+        if ($1) $$->push_back($1);
     }
 ;
 
@@ -279,7 +279,7 @@ comparison:
 ;
 
 statement_block: 
-    tok_Newline tok_Indent statements tok_Dedent { 
+    tok_Newline tok_Indent statements tok_Newline tok_Dedent { 
         fprintf(stderr, "DEBUG: Creating statement block with dedent\n"); 
         if ($3 == nullptr) {
             fprintf(stderr, "DEBUG: Warning - null statements in block\n");
