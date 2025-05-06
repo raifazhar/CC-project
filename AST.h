@@ -173,10 +173,10 @@ public:
 
 class ArrayAccessAST : public ASTNode
 {
+public:
     IdentifierAST *identifier;
     ASTNode *index;
 
-public:
     ArrayAccessAST(IdentifierAST *id, ASTNode *index)
         : identifier(id), index(index) {}
 
@@ -197,10 +197,10 @@ public:
 class InputAST : public ASTNode
 {
 public:
-    IdentifierAST *Identifier;
+    ASTNode *target;
 
-    InputAST(IdentifierAST *id)
-        : Identifier(id) {}
+    InputAST(ASTNode *id)
+        : target(id) {}
     Value *codegen() override;
 };
 

@@ -309,22 +309,38 @@ Value *InputAST::codegen()
         builder.SetInsertPoint(&entry, entry.end());
     }
 
-    Value *varPtr = globalSymbolTable->lookupSymbol(Identifier->name);
-    Type *varType = globalSymbolTable->getSymbolType(Identifier->name);
+    // Step 1: Generate the pointer to the variable or array element
+    Value *targetPtr = nullptr;
+    llvm::Type *varType = nullptr;
 
-    if (!varPtr || !varType)
+    // Check if this is an IdentifierAST
+    if (auto *id = dynamic_cast<IdentifierAST *>(target))
     {
-        errs() << "Error: undeclared variable '" << Identifier->name << "'\n";
+        targetPtr = globalSymbolTable->lookupSymbol(id->name);
+        varType = globalSymbolTable->getSymbolType(id->name);
+    }
+    else if (auto *arrayAccess = dynamic_cast<ArrayAccessAST *>(target))
+    {
+        // Use lookupSymbol with index to get the pointer
+        Value *indexValue = arrayAccess->index->codegen();
+        if (!indexValue)
+        {
+            errs() << "Error: invalid index expression\n";
+            return nullptr;
+        }
+
+        targetPtr = globalSymbolTable->lookupSymbol(arrayAccess->identifier->name, indexValue);
+        llvm::Type *arrayType = globalSymbolTable->getSymbolType(arrayAccess->identifier->name);
+        varType = arrayType->isArrayTy() ? arrayType->getArrayElementType() : arrayType;
+    }
+
+    if (!targetPtr || !varType)
+    {
+        errs() << "Error: invalid target for input\n";
         return nullptr;
     }
 
-    FunctionCallee scanfFunc = module->getOrInsertFunction(
-        "scanf",
-        FunctionType::get(
-            builder.getInt32Ty(),
-            PointerType::getUnqual(builder.getInt8Ty()),
-            true));
-
+    // Step 2: Prepare format string
     std::string fmt;
     if (varType->isIntegerTy(32))
         fmt = "%d";
@@ -333,19 +349,24 @@ Value *InputAST::codegen()
     else if (varType->isIntegerTy(8))
         fmt = " %c";
     else if (varType->isPointerTy())
-    {
         fmt = "%s";
-    }
     else
     {
-        errs() << "Error: unsupported input type for '" << Identifier->name << "'\n";
+        errs() << "Unsupported type in input\n";
         return nullptr;
     }
 
-    Value *fmtPtr = builder.CreateGlobalStringPtr(fmt, ".fmt_" + Identifier->name);
+    Value *fmtPtr = builder.CreateGlobalStringPtr(fmt, ".fmt");
 
-    builder.CreateCall(scanfFunc, {fmtPtr, varPtr});
+    // Step 3: Call scanf
+    FunctionCallee scanfFunc = module->getOrInsertFunction(
+        "scanf",
+        FunctionType::get(
+            builder.getInt32Ty(),
+            PointerType::getUnqual(builder.getInt8Ty()),
+            true));
 
+    builder.CreateCall(scanfFunc, {fmtPtr, targetPtr});
     return nullptr;
 }
 

@@ -247,7 +247,8 @@ output:
 ;
 
 input:
-    tok_Input tok_Identifier { $$= new InputAST(new IdentifierAST($2));}
+    tok_Input tok_Identifier { $$ = new InputAST(new IdentifierAST($2)); }
+  | tok_Input tok_Identifier '[' expression ']' { $$ = new InputAST(new ArrayAccessAST(new IdentifierAST($2), $4)); }
 ;
 
 
