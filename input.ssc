@@ -1,9 +1,14 @@
 DECLARE Numbers : ARRAY[ 0 : 30 ] OF INTEGER
 DECLARE x : INTEGER
+
+
+
+x=30
 DECLARE INDEX : INTEGER
 FOR INDEX = 0 TO 30
     OUTPUT "INPUT " , INDEX , " : " 
     INPUT x
     Numbers[INDEX]=x
     x=Numbers[INDEX]
-NEXT INDEX 
+    OUTPUT Numbers[INDEX]
+NEXT INDEX

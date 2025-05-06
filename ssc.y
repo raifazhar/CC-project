@@ -35,9 +35,9 @@
     AssignmentAST* assignment_ast;
     BinaryOpAST* binary_ast;
     RealLiteralAST* real_ast;
-InputAST* input_ast;
+    InputAST* input_ast;
     std::vector<ASTNode*>* stmt_list;
-std::vector<OutputAST*>* output_list;
+    std::vector<OutputAST*>* output_list;
     std::vector<ParameterAST*>* param_list;
     StatementBlockAST* statement_block_ast;
 }
@@ -80,7 +80,7 @@ std::vector<OutputAST*>* output_list;
 %left tok_And
 %right tok_Not
 %nonassoc '<' '>' tok_LE tok_GE tok_EQ tok_NEQ
-%left tok_AddOne tok_SubOne
+%nonassoc tok_AddOne tok_SubOne  // For postfix use
 %right UMINUS
 
 
@@ -153,7 +153,7 @@ statement_line:
 
 opt_newline:
     /* empty */
-    | tok_Newline opt_newline
+    | tok_Newline 
 ;
 
 
@@ -162,7 +162,6 @@ opt_newline:
 statement:
       assignment  { fprintf(stderr, "DEBUG: Processing assignment statement\n"); $$ = $1; }
     | array_assignment { fprintf(stderr, "DEBUG: Processing array assignment statement\n"); $$ = $1; }
-    | expression  { fprintf(stderr, "DEBUG: Processing expression statement\n"); $$ = $1; }
     | output {fprintf(stderr, "DEBUG: Processing output statement\n"); $$ = $1; }
     | input  {fprintf(stderr, "DEBUG: Processing input statement\n"); $$ = $1; }
     | if_stmt { fprintf(stderr, "DEBUG: Processing if statement\n"); $$ = $1; }
@@ -252,16 +251,17 @@ input:
 ;
 
 
+
 expression:
-      term { $$ = $1; }
+      term
     | expression tok_AddOne %prec UMINUS { $$ = new BinaryOpAST($1, nullptr, "++"); }
     | expression tok_SubOne %prec UMINUS { $$ = new BinaryOpAST($1, nullptr, "--"); }
     | expression '+' expression { $$ = new BinaryOpAST($1, $3, "+"); }
     | expression '-' expression { $$ = new BinaryOpAST($1, $3, "-"); }
     | expression '*' expression { $$ = new BinaryOpAST($1, $3, "*"); }
     | expression '/' expression { $$ = new BinaryOpAST($1, $3, "/"); }
-    | '-' expression      %prec UMINUS {$$= new UnaryOpAST($2,"-");}
-    | func_call_stmt {$$=$1;}
+    | '-' expression %prec UMINUS { $$ = new UnaryOpAST($2, "-"); }
+    | func_call_stmt { $$ = $1; }
 ;
 
 

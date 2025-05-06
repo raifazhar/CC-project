@@ -69,7 +69,7 @@ void debug_indent(int spaces, const char* action) {
     fprintf(stderr, "DEBUG: Tab in indent: %d\n", current_indent);
 }
 
-<indent>\n {
+<indent>\n+ {
     current_indent = 0;  /* Reset indent for blank lines */
     fprintf(stderr, "DEBUG: Empty line in indent mode\n");
     return tok_Newline;
