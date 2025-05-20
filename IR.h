@@ -14,7 +14,7 @@ extern bool start_of_line;
 extern SymbolTable *globalSymbolTable;
 
 Value *performBinaryOperation(Value *lhs, Value *rhs, const std::string &op);
-Value *performComparison(Value *lhs, Value *rhs, const std::string &op);
+Value *performComparison(Value *lhs, Value *rhs, const std::string &op); 
 void yyerror(const char *err);
 void initLLVM();
 void printLLVMIR();

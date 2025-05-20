@@ -20,7 +20,8 @@
     class TypeAST;  // Forward declaration
 }
 
-%union {
+%union 
+{
     char *identifier;
     int integer_literal;
     double real_literal;
@@ -80,7 +81,7 @@
 %left tok_And
 %right tok_Not
 %nonassoc '<' '>' tok_LE tok_GE tok_EQ tok_NEQ
-%nonassoc tok_AddOne tok_SubOne  // For postfix use
+%nonassoc tok_AddOne tok_SubOne  
 %right UMINUS
 
 
@@ -102,12 +103,16 @@
 %%
 
 root:
-    opt_newline statements  opt_newline {
+    opt_newline statements opt_newline {
         fprintf(stderr, "Processing %zu statements\n", $2->size());
 
         globalSymbolTable->enterScope();
 
-        bool hasError = false;
+         for (ASTNode* node : *$2) {
+            fprintf(stderr, "sematic check for node type: %s\n", typeid(*node).name());
+            bool result = node->semanticCheck() ;
+
+        }
 
         for (ASTNode* node : *$2) {
             fprintf(stderr, "Codegen for node type: %s\n", typeid(*node).name());
@@ -318,7 +323,7 @@ for_stmt:
         auto step = $5 ? new IntegerLiteralAST($5) : new IntegerLiteralAST(1);
 
         auto binaryOp = new BinaryOpAST(loopVar, step, "+");
-        auto incrementAssign = new AssignmentAST(loopVar, binaryOp, nullptr);
+        auto incrementAssign = new AssignmentAST(loopVar, binaryOp);
 
         $$ = new ForAST($2, cond, incrementAssign, $6);
         free($8);
@@ -339,13 +344,13 @@ integer_expr:
 
 while_stmt:
     tok_While comparison statement_block tok_End_While {
-        $$ = new WhileAST($2, $3->statements);
+        $$ = new WhileAST($2, $3);
     }
 ;
 
 repeat_stmt:
     tok_Repeat statement_block tok_Until comparison {
-        $$ = new RepeatAST($4, $2->statements);
+        $$ = new RepeatAST($4, $2);
     }
 ;
 
@@ -406,12 +411,12 @@ func_call_stmt:
 %%
 
 int main(int argc, char** argv) {
-        if (argc > 1) {
-        FILE *fp = fopen(argv[1], "r");
-        if (fp == NULL) {
-            fprintf(stderr, "Error opening file: %s\n", argv[1]);
-            return EXIT_FAILURE;
-        }
+    if (argc > 1) {
+    FILE *fp = fopen(argv[1], "r");
+    if (fp == NULL) {
+        fprintf(stderr, "Error opening file: %s\n", argv[1]);
+        return EXIT_FAILURE;
+    }
     yyin = fp;
         fprintf(stderr, "Opened input file: %s\n", argv[1]);
     } 

@@ -59,12 +59,6 @@ Value *IdentifierAST::codegen()
 {
     DEBUG_PRINT_FUNCTION();
     Value *ptr = globalSymbolTable->lookupSymbol(name);
-    if (!ptr)
-    {
-        errs() << "Error: Symbol not found for " << name << "\n";
-        return nullptr;
-    }
-
     if (isa<AllocaInst>(ptr))
     {
         auto *allocaInst = dyn_cast<AllocaInst>(ptr);
@@ -93,12 +87,7 @@ Value *DeclarationAST::codegen()
     DEBUG_PRINT_FUNCTION();
     llvm::errs() << "Generating code for declaration: " << identifier->name << " of type " << type->type << "\n";
 
-    // Get the default value for this type (e.g., 0 for integer types)
-    llvm::Type *varType = TypeAST::typeMap.at(type->type)(context);
-
-    AllocaInst *alloca = builder.CreateAlloca(varType, nullptr, identifier->name);
-
-    globalSymbolTable->setSymbol(identifier->name, alloca, varType);
+    AllocaInst *alloca = globalSymbolTable->allocatteSymbol(identifier->name);
 
     llvm::errs() << "Declaration codegen completed for: " << identifier->name << "\n";
     return alloca;
@@ -110,20 +99,9 @@ Value *AssignmentAST::codegen()
 
     // 1. Look up the variable pointer (not load its value)
     Value *varPtr = globalSymbolTable->lookupSymbol(identifier->name);
-    if (!varPtr)
-    {
-        llvm::outs() << "Unknown variable: " << identifier->name << "\n";
-        return nullptr;
-    }
 
     // 2. Get the type of the variable from the symbol table
     llvm::Type *varType = globalSymbolTable->getSymbolType(identifier->name);
-    if (!varType)
-    {
-        llvm::outs() << "Failed to get type for variable: " << identifier->name << "\n";
-        return nullptr;
-    }
-
     // 3. Generate code for the value being assigned
     Value *val = expression->codegen();
     if (!val)
@@ -149,18 +127,8 @@ Value *ArrayAST::codegen()
 {
     DEBUG_PRINT_FUNCTION();
     llvm::errs() << "Generating code for declaration: " << identifier->name << " of type " << type->type << "\n";
-
-    // 1. Get the element type (like i32)
-    llvm::Type *elementType = TypeAST::typeMap.at(type->type)(context);
-
-    // 2. Create the array type [size x elementType]
-    llvm::ArrayType *arrayType = llvm::ArrayType::get(elementType, lastIndex);
-
     // 3. Create an alloca of the array type
-    AllocaInst *alloca = builder.CreateAlloca(arrayType, nullptr, identifier->name);
-
-    // 4. Set it in the symbol table
-    globalSymbolTable->setSymbol(identifier->name, alloca, arrayType, true, firstIndex, lastIndex - 1);
+    AllocaInst *alloca = globalSymbolTable->allocatteSymbol(identifier->name);
 
     llvm::errs() << "Declaration codegen completed for: " << identifier->name << "\n";
     return alloca;
@@ -180,12 +148,6 @@ Value *ArrayAssignmentAST::codegen()
 
     // 2. Look up the pointer to the array element
     Value *elementPtr = globalSymbolTable->lookupSymbol(identifier->name, indexValue);
-    if (!elementPtr)
-    {
-        llvm::errs() << "Unknown array or invalid access: " << identifier->name << "\n";
-        return nullptr;
-    }
-
     // 3. Generate code for the value being assigned
     Value *val = expression->codegen();
     if (!val)
@@ -233,11 +195,6 @@ Value *ArrayAccessAST::codegen()
 
     // 2. Look up the pointer to the array element
     Value *elementPtr = globalSymbolTable->lookupSymbol(identifier->name, indexValue);
-    if (!elementPtr)
-    {
-        llvm::errs() << "Array access failed: " << identifier->name << "\n";
-        return nullptr;
-    }
 
     // 3. Get the type of the element, not the array
     llvm::Type *arrayType = globalSymbolTable->getSymbolType(identifier->name);
@@ -390,15 +347,6 @@ Value *ComparisonAST::codegen()
     return performComparison(lhsVal, rhsVal, cmpOp);
 }
 
-Value *ComparisonAST::codegen_single()
-{
-    DEBUG_PRINT_FUNCTION();
-
-    Value *lhsVal = LHS->codegen();
-    Value *rhsVal = ConstantFP::get(Type::getDoubleTy(context), 0.0);
-    return performComparison(lhsVal, rhsVal, cmpOp);
-}
-
 Value *IfAST::codegen()
 {
     globalSymbolTable->enterScope();
@@ -484,10 +432,7 @@ Value *WhileAST::codegen()
 
     // Emit body
     builder.SetInsertPoint(bodyBB);
-    for (auto *stmt : body)
-    {
-        stmt->codegen();
-    }
+    body->codegen();
     builder.CreateBr(condBB);
 
     // Continue with end block
@@ -508,10 +453,7 @@ Value *RepeatAST::codegen()
 
     // Emit body
     builder.SetInsertPoint(bodyBB);
-    for (auto *stmt : body)
-    {
-        stmt->codegen();
-    }
+    body->codegen();
     builder.CreateBr(condBB);
 
     // Emit condition
@@ -550,9 +492,8 @@ Value *ProcedureAST::codegen()
         paramVal->setName(param->name);
 
         llvm::Type *varType = TypeAST::typeMap.at(param->type->type)(context);
-        AllocaInst *alloca = builder.CreateAlloca(varType, nullptr, param->name);
+        AllocaInst *alloca = globalSymbolTable->allocatteSymbol(param->name);
         builder.CreateStore(paramVal, alloca);
-        globalSymbolTable->setSymbol(param->name, alloca, varType);
 
         ++argIt;
     }
@@ -593,9 +534,8 @@ Value *FuncAST::codegen()
         paramVal->setName(param->name);
 
         llvm::Type *varType = TypeAST::typeMap.at(param->type->type)(context);
-        AllocaInst *alloca = builder.CreateAlloca(varType, nullptr, param->name);
+        AllocaInst *alloca = globalSymbolTable->allocatteSymbol(param->name);
         builder.CreateStore(paramVal, alloca);
-        globalSymbolTable->setSymbol(param->name, alloca, varType);
 
         ++argIt;
     }

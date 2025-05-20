@@ -3,7 +3,6 @@
 #include "IR.h"
 #include <llvm/IR/IRBuilder.h>
 
-
 void SymbolTable::enterScope()
 {
     // Push a new scope to the stack
@@ -76,32 +75,66 @@ llvm::Type *SymbolTable::getSymbolType(const std::string &id)
     return nullptr; // Return nullptr if the symbol is not found
 }
 
-void SymbolTable::setSymbol(const std::string &id, llvm::Value *value, llvm::Type *type, bool isArray, int startIndex, int endIndex)
+void SymbolTable::declareSymbol(const std::string &id, llvm::Type *type, bool isArray, int startIndex, int endIndex)
 {
     // Set the symbol in the current scope with its value and type
     if (!SymbolTableStack.empty())
     {
         // Store the symbol as a SymbolEntry with Value and Type
-        SymbolTableStack.top()[id] = {value, type, isArray, startIndex, endIndex};
+        if (isArray)
+        {
+            llvm::Type *arraytype = llvm::ArrayType::get(type, endIndex - startIndex + 1);
+            SymbolTableStack.top()[id] = {nullptr, arraytype, isArray, startIndex, endIndex};
+            return;
+        }
+        SymbolTableStack.top()[id] = {nullptr, type, isArray, startIndex, endIndex};
     }
 }
 
-llvm::Value *SymbolTable::createNewSymbol(const std::string &id, llvm::Type *type, bool isArray, int startIndex, int endIndex)
+AllocaInst *SymbolTable::allocatteSymbol(const std::string &id)
 {
-    if (!SymbolTableStack.empty() && SymbolTableStack.top().find(id) != SymbolTableStack.top().end())
+    // Search for the symbol in all active scopes (actual stack, not copy)
+    std::stack<std::unordered_map<std::string, SymbolEntry>> temp;
+
+    while (!SymbolTableStack.empty())
     {
-        return nullptr;
+        auto &scope = SymbolTableStack.top();
+        auto it = scope.find(id);
+        if (it != scope.end())
+        {
+
+            // Only allocate if not already done
+            if (!it->second.value)
+            {
+                AllocaInst *alloca = builder.CreateAlloca(it->second.type, nullptr, id);
+                it->second.value = alloca;
+                return alloca;
+            }
+        }
+
+        // Temporarily move scope out to traverse
+        temp.push(std::move(scope));
+        SymbolTableStack.pop();
     }
 
-    llvm::Type *allocType = type;
-    if (isArray)
+    // Restore stack after traversal
+    while (!temp.empty())
     {
-        allocType = llvm::ArrayType::get(type, endIndex - startIndex + 1);
+        SymbolTableStack.push(std::move(temp.top()));
+        temp.pop();
     }
 
-    llvm::Value *alloca = builder.CreateAlloca(allocType, nullptr, id);
+    return nullptr;
+}
 
-    SymbolTableStack.top()[id] = {alloca, allocType, isArray, startIndex, endIndex};
-
-    return alloca;
+bool SymbolTable::checkDeclaration(const std::string &id)
+{
+    auto scopes = SymbolTableStack;
+    while (!scopes.empty())
+    {
+        if (scopes.top().count(id) > 0)
+            return true;
+        scopes.pop();
+    }
+    return false;
 }

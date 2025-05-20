@@ -26,11 +26,11 @@ Looks up a variable in the symbol table using `globalSymbolTable->lookupSymbol(n
 ### `DeclarationAST`
 
 Declares a scalar variable:
+
 - Get the amout of space need to allocate using `TypeAST::typeMap.at(type->type)(context)` in which type is passed
-  
 - Allocates memory using ` builder.CreateAlloca(varType, nullptr, identifier->name)`
 
-- Registers the variable in the symbol table using ` globalSymbolTable->setSymbol(identifier->name, alloca, varType)`
+- Registers the variable in the symbol table using ` globalSymbolTable->declareSymbol(identifier->name, alloca, varType)`
 
 ### `AssignmentAST`
 
@@ -50,7 +50,7 @@ Declares a static-sized array:
 
 - Uses `builder.CreateAlloca(arrayType, nullptr, identifier->name)` for storage
 
-- Stores metadata in the symbol table using `globalSymbolTable->setSymbol(identifier->name, alloca, arrayType, true, firstIndex, lastIndex - 1)`
+- Stores metadata in the symbol table using `globalSymbolTable->declareSymbol(identifier->name, alloca, arrayType, true, firstIndex, lastIndex - 1)`
 
 ### `ArrayAssignmentAST`
 
@@ -81,9 +81,7 @@ Generates a `scanf` call:
 - Determines format string using variable type
 
 - Gets pointer via `globalSymbolTable->lookupSymbol(Identifier->name)`
-  
 - Get input type `globalSymbolTable->getSymbolType(Identifier->name)`
-  
 - - Uses `builder.CreateGlobalStringPtr(fmt, ".fmt")` for format
 
 - Calls `scanf` with `builder.CreateCall(scanfFunc, {fmtPtr, varPtr});`

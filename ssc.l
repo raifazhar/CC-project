@@ -72,6 +72,7 @@ void debug_indent(int spaces, const char* action) {
     
     int previous = indent_stack.empty() ? 0 : indent_stack.top();
     
+
     if (current_indent > previous) {
         debug_indent(current_indent, "INDENT");
         indent_stack.push(current_indent);
@@ -88,7 +89,6 @@ void debug_indent(int spaces, const char* action) {
             dedent_buffer.push(tok_Dedent);
         }
 
-        
         /* Check if indent levels match */
         if (!indent_stack.empty() && current_indent != indent_stack.top()) {
             fprintf(stderr, "ERROR: Inconsistent indentation at line %d\n", yylineno);
@@ -114,6 +114,8 @@ void debug_indent(int spaces, const char* action) {
         }
     }
     
+
+
     /* Same indentation level */
     start_of_line = false;
     BEGIN(normal);
