@@ -87,7 +87,7 @@ Value *DeclarationAST::codegen()
     DEBUG_PRINT_FUNCTION();
     llvm::errs() << "Generating code for declaration: " << identifier->name << " of type " << type->type << "\n";
 
-    AllocaInst *alloca = globalSymbolTable->allocatteSymbol(identifier->name);
+    AllocaInst *alloca = globalSymbolTable->allocateSymbol(identifier->name);
 
     llvm::errs() << "Declaration codegen completed for: " << identifier->name << "\n";
     return alloca;
@@ -128,7 +128,7 @@ Value *ArrayAST::codegen()
     DEBUG_PRINT_FUNCTION();
     llvm::errs() << "Generating code for declaration: " << identifier->name << " of type " << type->type << "\n";
     // 3. Create an alloca of the array type
-    AllocaInst *alloca = globalSymbolTable->allocatteSymbol(identifier->name);
+    AllocaInst *alloca = globalSymbolTable->allocateSymbol(identifier->name);
 
     llvm::errs() << "Declaration codegen completed for: " << identifier->name << "\n";
     return alloca;
@@ -207,6 +207,7 @@ Value *ArrayAccessAST::codegen()
 
 Value *OutputAST::codegen()
 {
+    DEBUG_PRINT_FUNCTION();
     if (!builder.GetInsertBlock())
     {
         BasicBlock &entry = mainFunction->getEntryBlock();
@@ -260,6 +261,7 @@ Value *OutputAST::codegen()
 }
 Value *InputAST::codegen()
 {
+    DEBUG_PRINT_FUNCTION();
     if (!builder.GetInsertBlock())
     {
         BasicBlock &entry = mainFunction->getEntryBlock();
@@ -492,7 +494,7 @@ Value *ProcedureAST::codegen()
         paramVal->setName(param->name);
 
         llvm::Type *varType = TypeAST::typeMap.at(param->type->type)(context);
-        AllocaInst *alloca = globalSymbolTable->allocatteSymbol(param->name);
+        AllocaInst *alloca = globalSymbolTable->allocateSymbol(param->name);
         builder.CreateStore(paramVal, alloca);
 
         ++argIt;
@@ -534,7 +536,7 @@ Value *FuncAST::codegen()
         paramVal->setName(param->name);
 
         llvm::Type *varType = TypeAST::typeMap.at(param->type->type)(context);
-        AllocaInst *alloca = globalSymbolTable->allocatteSymbol(param->name);
+        AllocaInst *alloca = globalSymbolTable->allocateSymbol(param->name);
         builder.CreateStore(paramVal, alloca);
 
         ++argIt;

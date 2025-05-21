@@ -10,8 +10,6 @@ FOR INDEX = 0 TO 30
 
     OUTPUT "INPUT " , INDEX , " : " 
     INPUT Numbers[INDEX]
-
-
     OUTPUT Numbers[INDEX]
 
 

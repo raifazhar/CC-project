@@ -8,6 +8,7 @@
 #include <functional>
 #include "Symbol_Table.h"
 using namespace llvm;
+
 class ASTNode
 {
 public:

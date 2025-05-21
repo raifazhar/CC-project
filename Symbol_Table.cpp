@@ -1,17 +1,14 @@
-// SymbolTable.cpp
 #include "Symbol_Table.h"
 #include "IR.h"
 #include <llvm/IR/IRBuilder.h>
 
 void SymbolTable::enterScope()
 {
-    // Push a new scope to the stack
     SymbolTableStack.push({});
 }
 
 void SymbolTable::exitScope()
 {
-    // Pop the current scope from the stack
     if (!SymbolTableStack.empty())
     {
         SymbolTableStack.pop();
@@ -20,36 +17,40 @@ void SymbolTable::exitScope()
 
 llvm::Value *SymbolTable::lookupSymbol(const std::string &id, llvm::Value *index)
 {
-    auto scopes = SymbolTableStack;
+    auto scopes = SymbolTableStack; // now works because shared_ptr is copyable
     while (!scopes.empty())
     {
         auto &scope = scopes.top();
         auto it = scope.find(id);
         if (it != scope.end())
         {
+            auto sym = it->second;
+
             if (index == nullptr)
             {
-                return it->second.value;
+                return sym->getValue();
             }
 
-            if (it->second.isArray)
+            if (auto *arraySym = dynamic_cast<ArraySymbol *>(sym.get()))
             {
+                llvm::Value *arrayPtr = arraySym->getValue();         // Alloca'd [N x i32]*
+                llvm::Type *elementType = arraySym->getElementType(); // i32
+
                 llvm::Value *zero = llvm::ConstantInt::get(builder.getInt32Ty(), 0);
 
-                // Step 1: Adjust index if array startIndex != 0
-                if (it->second.startIndex != 0)
+                if (arraySym->getStartIndex() != 0)
                 {
-                    llvm::Value *startIdx = llvm::ConstantInt::get(builder.getInt32Ty(), it->second.startIndex);
+                    llvm::Value *startIdx = llvm::ConstantInt::get(builder.getInt32Ty(), arraySym->getStartIndex());
                     index = builder.CreateSub(index, startIdx, id + "_adjusted_index");
                 }
 
-                // Step 2: Calculate GEP
-                Value *ptr = builder.CreateGEP(
-                    it->second.type, // array type [size x element]
-                    it->second.value,
-                    {zero, index});
+                llvm::Value *gep = builder.CreateGEP(
+                    arraySym->getType(), // This is [N x i32]
+                    arrayPtr,
+                    {zero, index}, // Accessing index-th element
+                    id + "_elem_ptr");
 
-                return ptr;
+                return gep;
             }
             else
             {
@@ -58,7 +59,7 @@ llvm::Value *SymbolTable::lookupSymbol(const std::string &id, llvm::Value *index
         }
         scopes.pop();
     }
-    return nullptr; // Not found
+    return nullptr;
 }
 
 llvm::Type *SymbolTable::getSymbolType(const std::string &id)
@@ -69,32 +70,34 @@ llvm::Type *SymbolTable::getSymbolType(const std::string &id)
         auto &scope = scopes.top();
         auto it = scope.find(id);
         if (it != scope.end())
-            return it->second.type; // Access the 'type' member of SymbolEntry
+        {
+            return it->second->getType();
+        }
         scopes.pop();
     }
-    return nullptr; // Return nullptr if the symbol is not found
+    return nullptr;
 }
 
 void SymbolTable::declareSymbol(const std::string &id, llvm::Type *type, bool isArray, int startIndex, int endIndex)
 {
-    // Set the symbol in the current scope with its value and type
-    if (!SymbolTableStack.empty())
+    if (SymbolTableStack.empty())
+        return;
+
+    if (isArray)
     {
-        // Store the symbol as a SymbolEntry with Value and Type
-        if (isArray)
-        {
-            llvm::Type *arraytype = llvm::ArrayType::get(type, endIndex - startIndex + 1);
-            SymbolTableStack.top()[id] = {nullptr, arraytype, isArray, startIndex, endIndex};
-            return;
-        }
-        SymbolTableStack.top()[id] = {nullptr, type, isArray, startIndex, endIndex};
+        int size = endIndex - startIndex + 1;
+        llvm::Type *arrayType = llvm::ArrayType::get(type, size); // [N x i32]
+        SymbolTableStack.top()[id] = std::make_shared<ArraySymbol>(type, nullptr, startIndex, endIndex);
+    }
+    else
+    {
+        SymbolTableStack.top()[id] = std::make_shared<VariableSymbol>(type, nullptr);
     }
 }
 
-AllocaInst *SymbolTable::allocatteSymbol(const std::string &id)
+AllocaInst *SymbolTable::allocateSymbol(const std::string &id)
 {
-    // Search for the symbol in all active scopes (actual stack, not copy)
-    std::stack<std::unordered_map<std::string, SymbolEntry>> temp;
+    std::stack<std::unordered_map<std::string, std::shared_ptr<Symbol>>> temp;
 
     while (!SymbolTableStack.empty())
     {
@@ -102,22 +105,22 @@ AllocaInst *SymbolTable::allocatteSymbol(const std::string &id)
         auto it = scope.find(id);
         if (it != scope.end())
         {
-
-            // Only allocate if not already done
-            if (!it->second.value)
+            auto sym = it->second;
+            if (!sym->getValue())
             {
-                AllocaInst *alloca = builder.CreateAlloca(it->second.type, nullptr, id);
-                it->second.value = alloca;
+                AllocaInst *alloca = builder.CreateAlloca(sym->getType(), nullptr, id);
+                sym->setValue(alloca);
                 return alloca;
             }
+            else
+            {
+                return llvm::cast<AllocaInst>(sym->getValue());
+            }
         }
-
-        // Temporarily move scope out to traverse
         temp.push(std::move(scope));
         SymbolTableStack.pop();
     }
 
-    // Restore stack after traversal
     while (!temp.empty())
     {
         SymbolTableStack.push(std::move(temp.top()));
@@ -132,7 +135,7 @@ bool SymbolTable::checkDeclaration(const std::string &id)
     auto scopes = SymbolTableStack;
     while (!scopes.empty())
     {
-        if (scopes.top().count(id) > 0)
+        if (scopes.top().count(id))
             return true;
         scopes.pop();
     }
